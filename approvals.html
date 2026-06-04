@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approvals - DAR DMS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="db.js"></script>
+    <script src="sidebar.js"></script>
+</head>
+<body class="bg-gray-100 font-sans flex h-screen">
+
+    <aside id="sidebar-container" class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex"></aside>
+
+    <main class="flex-1 overflow-y-auto p-8">
+        <h2 class="text-2xl font-bold mb-6 text-gray-800">Pending Approvals</h2>
+        <div class="bg-white shadow sm:rounded-md">
+            <ul id="queue-list" class="divide-y divide-gray-200">
+                <li class="p-6 text-center text-gray-500">Loading documents...</li>
+            </ul>
+        </div>
+    </main>
+
+    <script>
+        async function fetchApprovals() {
+            const list = document.getElementById('queue-list');
+            const { data } = await window.supabaseClient
+                .from('documents')
+                .select('*')
+                .in('status', ['PENDING_HEA_REVIEW', 'PENDING_PARPO_SIGN']);
+
+            if (!data || data.length === 0) {
+                list.innerHTML = '<li class="p-6 text-center text-gray-500">No pending documents.</li>';
+                return;
+            }
+
+            list.innerHTML = '';
+            data.forEach(doc => {
+                list.innerHTML += `
+                    <li class="p-6 hover:bg-gray-50 flex items-center justify-between">
+                        <div>
+                            <p class="text-lg font-medium text-blue-600">${doc.title}</p>
+                            <span class="text-sm text-gray-500">${doc.doc_type}</span>
+                        </div>
+                        <button onclick="approveDoc('${doc.doc_id}')" class="bg-green-600 text-white py-2 px-4 rounded">Approve</button>
+                    </li>
+                `;
+            });
+        }
+
+        window.approveDoc = async function(docId) {
+            await window.supabaseClient.from('documents').update({ status: 'APPROVED' }).eq('doc_id', docId);
+            fetchApprovals();
+        };
+
+        document.addEventListener('DOMContentLoaded', fetchApprovals);
+    </script>
+</body>
+</html>
