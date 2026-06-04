@@ -15,7 +15,7 @@
         /* Base styling */
         body { 
             font-family: 'Roboto', sans-serif; 
-            font-size: 11pt; /* Enforce size 11 */
+            font-size: 11pt; 
             background-color: #f3f4f6; 
             color: black;
         }
@@ -28,22 +28,36 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
             display: flex;
             flex-direction: column;
+            /* Top 1.25in, Right 1in, Bottom 1in, Left 1in */
             padding: 1.25in 1in 1in 1in;
         }
 
         /* Intelligent Paging Rules */
         .avoid-break { page-break-inside: avoid; break-inside: avoid; }
-        .doc-header-grid { display: grid; grid-template-columns: 100px 1fr; gap: 0.5rem; margin-bottom: 1rem; }
-        .doc-header-label { font-weight: bold; text-transform: uppercase; }
         
-        /* Ensure all paragraphs follow size 11 and justify alignment */
+        /* Exact layout based on image_305b04.png */
+        .doc-header-grid { 
+            display: grid; 
+            /* Col 1: Label (approx 80px), Col 2: Colon (20px), Col 3: Values */
+            grid-template-columns: 80px 20px 1fr; 
+            row-gap: 1rem; /* Space between TO, FROM, DATE, etc. */
+            margin-bottom: 1.5rem; 
+        }
+        
+        /* Document Body Paragraphs - Enforcing Double Space (approx 1.5rem to 2rem) */
         p, .prose p, .prose span { 
             orphans: 3; 
             widows: 3; 
-            margin-bottom: 1rem; 
+            margin-bottom: 1.5rem !important; /* Double space per paragraph */
             text-align: justify; 
             font-size: 11pt !important;
             line-height: 1.5;
+        }
+
+        hr.divider {
+            border: 0;
+            border-top: 2px solid black;
+            margin-bottom: 2rem;
         }
 
         /* Dynamic Print Rules */
@@ -83,7 +97,7 @@
         <div id="doc-header" class="avoid-break mb-4">
             </div>
 
-        <div id="doc-body" class="flex-grow prose max-w-none">
+        <div id="doc-body" class="flex-grow prose max-w-none mt-4">
             <p class="text-gray-500 text-center mt-10">Loading document...</p>
         </div>
 
@@ -120,27 +134,38 @@
             styleTag.innerHTML = css;
         }
 
-        // Helper func to convert newlines to Double Spaces (<br><br>) for paragraphs
-        function formatDoubleSpace(text) {
-            if (!text) return "";
-            // Replace existing single <br> or \n with a double break for standard memo spacing
-            return text.replace(/<br\s*\/?>/gi, '\n').replace(/\n+/g, '<br><br>');
+        // AUTO-FORMATTER: 
+        // Makes Line 1 BOLD & UPPERCASE. Makes Line 2+ NORMAL case.
+        // Also cleans up any messy HTML from the database to ensure perfect formatting.
+        function formatHeaderValue(val, isSubjectOrDate = false) {
+            if (!val) return "";
+            
+            // Strip any existing HTML so we can control it cleanly
+            let cleanString = val.replace(/<br\s*\/?>/gi, '\n').replace(/<\/?[^>]+(>|$)/g, "");
+            let lines = cleanString.split('\n');
+            
+            if (isSubjectOrDate) {
+                // For Subject and Date, EVERYTHING is bold and uppercase
+                return `<b class="uppercase">${lines.join('<br>')}</b>`;
+            } else {
+                // For TO and FROM: Line 1 = Bold+Upper, Line 2+ = Normal
+                if (lines.length > 0) {
+                    lines[0] = `<b class="uppercase">${lines[0]}</b>`;
+                }
+                return lines.join('<br>');
+            }
         }
 
-        // Helper func to generate a perfectly aligned grid row with Flexbox inside
-        function makeGridRow(label, value, isBold = false, addMarginTop = false) {
-            if (!value) return "";
-            
-            let formattedValue = formatDoubleSpace(value);
-            let mtClass = addMarginTop ? 'mt-4' : '';
-            let valClass = isBold ? 'font-bold uppercase' : '';
+        // Builder for the 3-column Grid (Label | : | Value)
+        function makeGridRow(label, value, isSubjectOrDate = false) {
+            // Even if value is blank, we render the row so the Subject/Date label doesn't disappear
+            let safeValue = value || " "; 
+            let formattedValue = formatHeaderValue(safeValue, isSubjectOrDate);
             
             return `
-                <div class="doc-header-label ${mtClass}">${label}</div>
-                <div class="flex ${mtClass}">
-                    <span>:</span>
-                    <span class="w-6 shrink-0"></span> <div class="flex-1 ${valClass}">${formattedValue}</div>
-                </div>
+                <div class="font-bold uppercase">${label}</div>
+                <div class="font-bold">:</div>
+                <div>${formattedValue}</div>
             `;
         }
 
@@ -169,67 +194,66 @@
             const meta = doc.content_data || {};
             let headerHtml = "";
             
-            // Fix missing subject: Fallback to doc.title if meta.subject is missing
-            const finalSubject = meta.subject || doc.title;
-            // Handle missing dates securely
-            const finalDate = formatDate(meta.date || doc.created_at);
+            // FALLBACKS: If they didn't fill it out, we still have a fallback
+            const finalSubject = meta.subject || doc.title || "";
+            const finalDate = meta.date ? formatDate(meta.date) : formatDate(doc.created_at);
 
             switch (doc.doc_type) {
                 case 'MEMO_INTERNAL':
                 case 'MEMO_EXTERNAL':
-                    headerHtml += `<h2 class="font-bold mb-6 uppercase" style="font-size: 14pt;">MEMORANDUM</h2>`;
+                    headerHtml += `<h2 class="font-bold mb-8 uppercase" style="font-size: 14pt;">MEMORANDUM</h2>`;
                     headerHtml += `<div class="doc-header-grid">`;
                     headerHtml += makeGridRow("TO", meta.to);
                     headerHtml += makeGridRow("FOR", meta.for);
-                    headerHtml += makeGridRow("FROM", meta.from, true); 
-                    headerHtml += makeGridRow("DATE", finalDate);
-                    headerHtml += makeGridRow("SUBJECT", finalSubject, true, true);
-                    headerHtml += `</div><hr class="border-t-2 border-black mt-2">`;
+                    headerHtml += makeGridRow("FROM", meta.from); // 1st line bold, 2nd normal
+                    headerHtml += makeGridRow("DATE", finalDate, true); // True = All Bold
+                    headerHtml += makeGridRow("SUBJECT", finalSubject, true); // True = All Bold
+                    headerHtml += `</div><hr class="divider">`;
                     break;
 
                 case 'ADVISORY':
-                    headerHtml += `<h2 class="font-bold mb-6 uppercase" style="font-size: 14pt;">ADVISORY</h2>`;
+                    headerHtml += `<h2 class="font-bold mb-8 uppercase" style="font-size: 14pt;">ADVISORY</h2>`;
                     headerHtml += `<div class="doc-header-grid">`;
                     headerHtml += makeGridRow("FOR", meta.for);
-                    headerHtml += makeGridRow("FROM", meta.from, true);
-                    headerHtml += makeGridRow("SUBJECT", finalSubject, true, true);
-                    headerHtml += `</div><hr class="border-t-2 border-black mt-2">`;
+                    headerHtml += makeGridRow("FROM", meta.from);
+                    headerHtml += makeGridRow("SUBJECT", finalSubject, true);
+                    headerHtml += `</div><hr class="divider">`;
                     break;
 
                 case 'NOTICE_OF_MEETING':
-                    headerHtml += `<h2 class="font-bold mb-6 text-center underline uppercase" style="font-size: 16pt;">NOTICE OF MEETING</h2>`;
+                    headerHtml += `<h2 class="font-bold mb-8 text-center underline uppercase" style="font-size: 14pt;">NOTICE OF MEETING</h2>`;
                     headerHtml += `<div class="doc-header-grid">`;
                     headerHtml += makeGridRow("TO", meta.to);
-                    headerHtml += makeGridRow("FROM", meta.from, true);
-                    headerHtml += makeGridRow("SUBJECT", finalSubject);
-                    headerHtml += makeGridRow("DATE", finalDate);
-                    headerHtml += `</div><hr class="border-t-2 border-black mt-2">`;
+                    headerHtml += makeGridRow("FROM", meta.from);
+                    headerHtml += makeGridRow("SUBJECT", finalSubject, true);
+                    headerHtml += makeGridRow("DATE", finalDate, true);
+                    headerHtml += `</div><hr class="divider">`;
                     break;
 
                 case 'PSO':
                     headerHtml += `<h2 class="font-bold uppercase" style="font-size: 12pt;">PROVINCIAL SPECIAL ORDER No. ________</h2>`;
-                    headerHtml += `<h2 class="font-bold mb-6 uppercase" style="font-size: 12pt;">SERIES OF ${new Date().getFullYear()}</h2>`;
-                    headerHtml += `<div class="flex mb-2"><span class="font-bold mr-4">SUBJECT:</span> <span class="font-bold uppercase flex-1">${formatDoubleSpace(finalSubject)}</span></div>`;
-                    headerHtml += `<hr class="border-t-2 border-black mt-2">`;
+                    headerHtml += `<h2 class="font-bold mb-8 uppercase" style="font-size: 12pt;">SERIES OF ${new Date().getFullYear()}</h2>`;
+                    headerHtml += `<div class="flex mb-4"><span class="font-bold mr-4">SUBJECT:</span> <span class="font-bold uppercase flex-1">${finalSubject.replace(/\n/g, '<br>')}</span></div>`;
+                    headerHtml += `<hr class="divider">`;
                     break;
 
                 case 'CERT_JUST':
                     headerHtml += `<h2 class="font-bold mb-2 text-center text-[#4a773c] uppercase" style="font-size: 18pt;">${doc.title || 'JUSTIFICATION'}</h2>`;
-                    if (meta.subtitle) headerHtml += `<p class="text-center mb-6">${formatDoubleSpace(meta.subtitle)}</p>`;
+                    if (meta.subtitle) headerHtml += `<p class="text-center mb-6">${meta.subtitle.replace(/\n/g, '<br>')}</p>`;
                     break;
 
                 case 'LETTER':
                     headerHtml += `<p class="mb-6">${finalDate}</p>`;
                     if (meta.to) {
-                        headerHtml += `<div class="mb-4">${formatDoubleSpace(meta.to)}</div>`;
+                        headerHtml += `<div class="mb-6">${formatHeaderValue(meta.to)}</div>`;
                     }
                     if (meta.thru) {
-                        headerHtml += `<div class="flex mb-6"><span class="mr-8">THRU:</span> <div class="flex-1">${formatDoubleSpace(meta.thru)}</div></div>`;
+                        headerHtml += `<div class="flex mb-6"><span class="mr-8 uppercase">THRU:</span> <div class="flex-1">${formatHeaderValue(meta.thru)}</div></div>`;
                     }
                     if (meta.attention) {
-                        headerHtml += `<div class="mb-6 flex"><span>ATTENTION:</span><span class="w-2 shrink-0"></span><b class="flex-1">${formatDoubleSpace(meta.attention)}</b></div>`;
+                        headerHtml += `<div class="mb-6 flex"><span>ATTENTION:</span><span class="w-4 shrink-0"></span><div class="flex-1">${formatHeaderValue(meta.attention, true)}</div></div>`;
                     }
-                    headerHtml += `<p class="mb-4">Sir/Madam:</p>`;
+                    headerHtml += `<p class="mb-6">Sir/Madam:</p>`;
                     break;
             }
 
@@ -246,6 +270,7 @@
         });
 
         function formatDate(dateString) {
+            if(!dateString) return "";
             const options = { year: 'numeric', month: 'long', day: 'numeric' };
             return new Date(dateString).toLocaleDateString('en-US', options);
         }
