@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Document - DAR DMS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <script src="db.js"></script>
+    <script src="sidebar.js"></script>
+</head>
+<body class="bg-gray-100 font-sans flex h-screen">
+
+    <aside id="sidebar-container" class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex"></aside>
+
+    <main class="flex-1 overflow-y-auto p-8">
+        <div class="max-w-3xl mx-auto bg-white p-8 shadow-md rounded-lg">
+            <h2 class="text-2xl font-bold mb-6 text-gray-800">Create New Document</h2>
+            
+            <form id="document-form" class="space-y-6">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Document Type</label>
+                    <select id="doc_type" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border bg-white">
+                        <option value="" disabled selected>Select a document type...</option>
+                        <option value="CERTIFICATION">Certification</option>
+                        <option value="MEMORANDUM">Memorandum</option>
+                        <option value="PSO">Provincial Special Order (PSO)</option>
+                        <option value="NOTICE_OF_MEETING">Notice of Meeting</option>
+                        <option value="ADVISORY">Advisory</option>
+                        <option value="LETTER">Letter</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Title / Subject</label>
+                    <input type="text" id="title" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="e.g., Q3 Planning Session" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Body Content</label>
+                    <textarea id="body_content" rows="8" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Type the main content of your document here..."></textarea>
+                </div>
+
+                <div class="flex items-center justify-end space-x-4">
+                    <span id="form-msg" class="text-sm font-bold hidden"></span>
+                    <button type="submit" id="submit-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition">
+                        Save Document
+                    </button>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        document.getElementById('document-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const btn = document.getElementById('submit-btn');
+            const msg = document.getElementById('form-msg');
+            
+            btn.innerText = "Saving...";
+            btn.disabled = true;
+            msg.classList.remove('hidden');
+            msg.innerText = "";
+
+            // Gather form data
+            const docData = {
+                title: document.getElementById('title').value,
+                doc_type: document.getElementById('doc_type').value,
+                status: 'DRAFT', // Default starting status
+                content_data: { 
+                    body: document.getElementById('body_content').value 
+                }
+            };
+
+            try {
+                // Insert into Supabase
+                const { error } = await window.supabaseClient
+                    .from('documents')
+                    .insert([docData]);
+
+                if (error) throw error;
+
+                msg.innerText = "Document saved successfully!";
+                msg.className = "text-sm font-bold text-green-600 block";
+                document.getElementById('document-form').reset();
+                
+            } catch (err) {
+                console.error("Insert error:", err);
+                msg.innerText = "Error saving document. Check console.";
+                msg.className = "text-sm font-bold text-red-600 block";
+            } finally {
+                btn.innerText = "Save Document";
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
