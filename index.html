@@ -41,50 +41,49 @@
     </main>
 
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
-            // 1. Check Authentication FIRST
-            const { data: { session } } = await window.supabaseClient.auth.getSession();
-            
-            if (!session) {
-                window.location.href = 'login.html';
-                return;
-            }
-            
-            // Show page now that we know they are logged in
-            document.getElementById('page-body').classList.remove('hidden');
+       document.addEventListener('DOMContentLoaded', async () => {
+    // 1. Check Authentication
+    const { data: { session } } = await window.supabaseClient.auth.getSession();
+    
+    if (!session) {
+        window.location.href = 'login.html';
+        return;
+    }
+    
+    document.getElementById('page-body').classList.remove('hidden');
 
-            // 2. Fetch Documents
-            const tbody = document.getElementById('doc-list');
-            const { data: documents, error } = await window.supabaseClient
-                .from('documents')
-                .select('*')
-                .order('created_at', { ascending: false });
+    // 2. Fetch Documents (Wala na ang .order para hindi mag-error)
+    const tbody = document.getElementById('doc-list');
+    const { data: documents, error } = await window.supabaseClient
+        .from('documents')
+        .select('*'); 
 
-            if (error) {
-                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Error loading data.</td></tr>`;
-                console.error("Fetch error:", error);
-                return;
-            }
+    if (error) {
+        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
+        console.error("Fetch error:", error);
+        return;
+    }
 
-            if (documents.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No documents found.</td></tr>`;
-                return;
-            }
+    if (!documents || documents.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No documents found.</td></tr>`;
+        return;
+    }
 
-            // 3. Render Documents
-            tbody.innerHTML = documents.map(doc => `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 font-medium text-gray-900">${doc.title || 'Untitled'}</td>
-                    <td class="px-6 py-4 text-gray-600">${doc.doc_type}</td>
-                    <td class="px-6 py-4">
-                        <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-yellow-300">
-                            ${doc.status}
-                        </span>
-                    </td>
-                    <td class="px-6 py-4 text-gray-500">${new Date(doc.created_at).toLocaleDateString()}</td>
-                </tr>
-            `).join('');
-        });
+    // 3. Render Documents (Wala na ang date)
+    tbody.innerHTML = documents.map(doc => `
+        <tr class="hover:bg-gray-50">
+            <td class="px-6 py-4 font-medium text-gray-900">${doc.title || 'Untitled'}</td>
+            <td class="px-6 py-4 text-gray-600">${doc.doc_type || '-'}</td>
+            <td class="px-6 py-4">
+                <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-yellow-300">
+                    ${doc.status || 'DRAFT'}
+                </span>
+            </td>
+            <td class="px-6 py-4 text-gray-500">N/A</td>
+        </tr>
+    `).join('');
+});
+    
     </script>
 </body>
 </html>
