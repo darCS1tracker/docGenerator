@@ -117,20 +117,16 @@
         document.getElementById('doc_type').addEventListener('change', function(e) {
             const type = e.target.value;
             
-            // Show main containers
             document.getElementById('dynamic-fields').classList.remove('hidden');
             document.getElementById('editor-container').classList.remove('hidden');
             document.getElementById('submit-btn').classList.remove('hidden');
 
-            // Hide all specific fields first
             document.querySelectorAll('.dyn-field').forEach(el => el.classList.add('hidden'));
 
-            // Helper function to show specific fields
             const showFields = (fields) => {
                 fields.forEach(f => document.getElementById(f).classList.remove('hidden'));
             };
 
-            // Logic matching the uploaded document formats
             switch(type) {
                 case 'MEMO_INTERNAL':
                     showFields(['field-to', 'field-from', 'field-subject', 'field-date']);
@@ -148,7 +144,6 @@
                     showFields(['field-subject']);
                     break;
                 case 'CERT_JUST':
-                    // Added subtitle field mapping here
                     showFields(['field-subject', 'field-subtitle']);
                     break;
                 case 'LETTER':
@@ -179,14 +174,15 @@
                 return;
             }
 
-            // Gather only visible form data to store in JSON
             let contentData = { body: formattedContent };
             
             const checkAndAdd = (fieldId, jsonKey) => {
                 const el = document.getElementById(fieldId);
-                const container = el.closest('.dyn-field');
-                if (!container.classList.contains('hidden') && el.value.trim() !== '') {
-                    contentData[jsonKey] = el.value.trim();
+                if (el) {
+                    const container = el.closest('.dyn-field');
+                    if (container && !container.classList.contains('hidden') && el.value.trim() !== '') {
+                        contentData[jsonKey] = el.value.trim();
+                    }
                 }
             };
 
@@ -196,17 +192,18 @@
             checkAndAdd('meta_date', 'date');
             checkAndAdd('meta_thru', 'thru');
             checkAndAdd('meta_attention', 'attention');
-            checkAndAdd('meta_subtitle', 'subtitle'); // Captures subtitle
+            checkAndAdd('meta_subtitle', 'subtitle'); 
 
-            // Determine Title (Fallback to Document Type if no subject is provided)
             let docTitle = document.getElementById('meta_subject').value.trim();
             const typeSelected = document.getElementById('doc_type');
+            
             if(!docTitle) {
                 docTitle = typeSelected.options[typeSelected.selectedIndex].text + " - Draft";
             } else {
                 contentData['subject'] = docTitle;
             }
 
+            // Build the exact payload for Supabase
             const docData = {
                 title: docTitle,
                 doc_type: typeSelected.value,
@@ -215,16 +212,23 @@
             };
 
             try {
-                const { error } = await window.supabaseClient
-                    .from('documents')
-                    .insert([docData]);
+                if (!window.supabaseClient) {
+                    throw new Error("Supabase client is not initialized in db.js.");
+                }
 
-                if (error) throw error;
+                const { data, error } = await window.supabaseClient
+                    .from('documents')
+                    .insert([docData])
+                    .select();
+
+                if (error) {
+                    throw error; 
+                }
 
                 msg.innerText = "Document saved successfully!";
                 msg.className = "text-sm font-bold text-green-600 block";
                 
-                // Reset everything
+                // Reset form
                 document.getElementById('document-form').reset();
                 tinymce.get('body_content').setContent('');
                 document.getElementById('dynamic-fields').classList.add('hidden');
@@ -232,9 +236,16 @@
                 document.getElementById('submit-btn').classList.add('hidden');
                 
             } catch (err) {
-                console.error("Insert error:", err);
-                msg.innerText = "Error saving document. Check console.";
+                console.error("FULL DB ERROR:", err);
+                
+                // Print the exact Supabase rejection reason
+                let errorDetails = err.message || err.error_description || JSON.stringify(err);
+                
+                msg.innerText = "Database Error: " + errorDetails;
                 msg.className = "text-sm font-bold text-red-600 block";
+                
+                alert("Insert Failed: \n\n" + errorDetails);
+                
             } finally {
                 btn.innerText = "Save Document";
                 btn.disabled = false;
