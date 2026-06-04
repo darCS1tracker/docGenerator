@@ -14,7 +14,7 @@
     <aside id="sidebar-container" class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex"></aside>
 
     <main class="flex-1 overflow-y-auto p-8">
-        <div class="max-w-6xl mx-auto">
+        <div class="max-w-7xl mx-auto">
             <div class="flex justify-between items-center mb-8">
                 <h2 class="text-3xl font-bold text-gray-800">Dashboard</h2>
                 <a href="new-document.html" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow">
@@ -30,10 +30,11 @@
                             <th class="px-6 py-4 font-bold text-gray-700">Type</th>
                             <th class="px-6 py-4 font-bold text-gray-700">Status</th>
                             <th class="px-6 py-4 font-bold text-gray-700">Date Created</th>
+                            <th class="px-6 py-4 font-bold text-gray-700">Actions</th>
                         </tr>
                     </thead>
                     <tbody id="doc-list" class="divide-y divide-gray-200">
-                        <tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Loading documents...</td></tr>
+                        <tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading documents...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -41,49 +42,111 @@
     </main>
 
     <script>
-       document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Check Authentication
-    const { data: { session } } = await window.supabaseClient.auth.getSession();
-    
-    if (!session) {
-        window.location.href = 'login.html';
-        return;
-    }
-    
-    document.getElementById('page-body').classList.remove('hidden');
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Check Authentication
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
 
-    // 2. Fetch Documents (Wala na ang .order para hindi mag-error)
-    const tbody = document.getElementById('doc-list');
-    const { data: documents, error } = await window.supabaseClient
-        .from('documents')
-        .select('*'); 
+            // 2. Fetch User Profile to Check Role
+            const { data: profile } = await window.supabaseClient
+                .from('profiles')
+                .select('role')
+                .eq('id', session.user.id)
+                .single();
+            
+            // Check if the current user is HEA
+            const isHEA = profile?.role === 'HEA';
 
-    if (error) {
-        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
-        console.error("Fetch error:", error);
-        return;
-    }
+            document.getElementById('page-body').classList.remove('hidden');
 
-    if (!documents || documents.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No documents found.</td></tr>`;
-        return;
-    }
+            // 3. Fetch Documents
+            const tbody = document.getElementById('doc-list');
+            const { data: documents, error } = await window.supabaseClient
+                .from('documents')
+                .select('*'); 
 
-    // 3. Render Documents (Wala na ang date)
-    tbody.innerHTML = documents.map(doc => `
-        <tr class="hover:bg-gray-50">
-            <td class="px-6 py-4 font-medium text-gray-900">${doc.title || 'Untitled'}</td>
-            <td class="px-6 py-4 text-gray-600">${doc.doc_type || '-'}</td>
-            <td class="px-6 py-4">
-                <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-yellow-300">
-                    ${doc.status || 'DRAFT'}
-                </span>
-            </td>
-            <td class="px-6 py-4 text-gray-500">N/A</td>
-        </tr>
-    `).join('');
-});
-    
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
+                console.error("Fetch error:", error);
+                return;
+            }
+
+            if (!documents || documents.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No documents found.</td></tr>`;
+                return;
+            }
+
+            // 4. Render Documents with Conditional Buttons
+            tbody.innerHTML = documents.map(doc => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 font-medium text-gray-900">${doc.title || 'Untitled'}</td>
+                    <td class="px-6 py-4 text-gray-600">${doc.doc_type || '-'}</td>
+                    <td class="px-6 py-4">
+                        <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-yellow-300">
+                            ${doc.status || 'DRAFT'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-500">N/A</td>
+                    <td class="px-6 py-4">
+                        ${isHEA && doc.status !== 'APPROVED' ? `
+                            <div class="flex space-x-2">
+                                <button onclick="approveDoc('${doc.doc_id}')" class="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded font-bold transition">
+                                    Approve
+                                </button>
+                                <button onclick="approveAndPrint('${doc.doc_id}')" class="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 rounded font-bold transition">
+                                    Approve & Print
+                                </button>
+                            </div>
+                        ` : isHEA && doc.status === 'APPROVED' ? `
+                            <button onclick="window.location.href='print.html?doc_id=${doc.doc_id}'" class="text-blue-600 hover:underline text-sm font-bold">
+                                Print Document
+                            </button>
+                        ` : '<span class="text-gray-400 text-xs">Read Only</span>'}
+                    </td>
+                </tr>
+            `).join('');
+        });
+
+        // --- ACTION FUNCTIONS ---
+
+        // Function 1: Just Approve
+        window.approveDoc = async (docId) => {
+            if (!confirm("Are you sure you want to approve this document?")) return;
+            
+            const { error } = await window.supabaseClient
+                .from('documents')
+                .update({ status: 'APPROVED' })
+                .eq('doc_id', docId);
+
+            if (error) {
+                alert("Error approving document: " + error.message);
+            } else {
+                alert("Document approved successfully!");
+                location.reload(); // Refresh to update the table
+            }
+        };
+
+        // Function 2: Approve and redirect to Print view
+        window.approveAndPrint = async (docId) => {
+            if (!confirm("Approve this document and proceed to print with E-Sign?")) return;
+            
+            const { error } = await window.supabaseClient
+                .from('documents')
+                .update({ status: 'APPROVED' })
+                .eq('doc_id', docId);
+
+            if (error) {
+                alert("Error approving document: " + error.message);
+                return;
+            }
+            
+            // Redirect to a dedicated print page, passing the document ID in the URL
+            window.location.href = `print.html?doc_id=${docId}`;
+        };
     </script>
 </body>
 </html>
