@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    <!-- Add TinyMCE for MS Word-like Editing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
     
     <script src="db.js"></script>
@@ -22,7 +21,6 @@
             <h2 class="text-2xl font-bold mb-6 text-gray-800">Create New Document</h2>
             
             <form id="document-form" class="space-y-6">
-                <!-- Document Type Selection -->
                 <div class="w-full md:w-1/2">
                     <label class="block text-sm font-medium text-gray-700">Document Type</label>
                     <select id="doc_type" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border bg-white">
@@ -37,59 +35,54 @@
                     </select>
                 </div>
 
-                <!-- Dynamic Metadata Fields Container -->
                 <div id="dynamic-fields" class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded border hidden">
                     
-                    <!-- TO Field (Textarea to allow multiple receivers for letters) -->
                     <div id="field-to" class="dyn-field hidden col-span-1 md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700">TO (Addressee/s)</label>
                         <textarea id="meta_to" rows="2" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Name, Title, Office..."></textarea>
                     </div>
 
-                    <!-- FOR Field -->
                     <div id="field-for" class="dyn-field hidden col-span-1 md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700">FOR</label>
                         <input type="text" id="meta_for" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="e.g., All Concerned Personnel" />
                     </div>
 
-                    <!-- THRU Field (Letters) -->
                     <div id="field-thru" class="dyn-field hidden">
                         <label class="block text-sm font-medium text-gray-700">THRU (Optional)</label>
                         <input type="text" id="meta_thru" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Name, Title..." />
                     </div>
 
-                    <!-- ATTENTION Field (Letters) -->
                     <div id="field-attention" class="dyn-field hidden">
                         <label class="block text-sm font-medium text-gray-700">ATTENTION (Optional)</label>
                         <input type="text" id="meta_attention" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Name of specific person..." />
                     </div>
 
-                    <!-- FROM Field -->
                     <div id="field-from" class="dyn-field hidden">
                         <label class="block text-sm font-medium text-gray-700">FROM</label>
                         <input type="text" id="meta_from" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" value="RICARDO C. GARCIA" />
                     </div>
 
-                    <!-- DATE Field -->
                     <div id="field-date" class="dyn-field hidden">
                         <label class="block text-sm font-medium text-gray-700">DATE</label>
                         <input type="date" id="meta_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" />
                     </div>
 
-                    <!-- SUBJECT / TITLE Field -->
                     <div id="field-subject" class="dyn-field hidden col-span-1 md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700">SUBJECT / TITLE</label>
                         <input type="text" id="meta_subject" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Enter the subject or title of the document..." />
                     </div>
+
+                    <div id="field-subtitle" class="dyn-field hidden col-span-1 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">SUBTITLE</label>
+                        <input type="text" id="meta_subtitle" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="e.g., Rescheduling of the VAWC Culminating Activity..." />
+                    </div>
                 </div>
 
-                <!-- The Rich Text Editor Area -->
                 <div id="editor-container" class="hidden">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Document Body</label>
                     <textarea id="body_content" placeholder="Type the main content of your document here..."></textarea>
                 </div>
 
-                <!-- Submit Button -->
                 <div class="flex items-center justify-end space-x-4 pt-4 border-t">
                     <span id="form-msg" class="text-sm font-bold hidden"></span>
                     <button type="submit" id="submit-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition hidden">
@@ -152,8 +145,11 @@
                     showFields(['field-for', 'field-from', 'field-subject']);
                     break;
                 case 'PSO':
-                case 'CERT_JUST':
                     showFields(['field-subject']);
+                    break;
+                case 'CERT_JUST':
+                    // Added subtitle field mapping here
+                    showFields(['field-subject', 'field-subtitle']);
                     break;
                 case 'LETTER':
                     showFields(['field-to', 'field-thru', 'field-attention', 'field-subject', 'field-date']);
@@ -200,6 +196,7 @@
             checkAndAdd('meta_date', 'date');
             checkAndAdd('meta_thru', 'thru');
             checkAndAdd('meta_attention', 'attention');
+            checkAndAdd('meta_subtitle', 'subtitle'); // Captures subtitle
 
             // Determine Title (Fallback to Document Type if no subject is provided)
             let docTitle = document.getElementById('meta_subject').value.trim();
