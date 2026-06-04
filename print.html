@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Document - DAR DMS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="db.js"></script>
+    
+    <style>
+        /* Base styling */
+        body { 
+            font-family: 'Arial', sans-serif; 
+            background-color: #f3f4f6; 
+            color: black;
+        }
+        
+        /* The on-screen paper preview */
+        .page { 
+            background: white; 
+            margin: 4rem auto; 
+            box-sizing: border-box; 
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
+            display: flex;
+            flex-direction: column;
+            /* Margins applied as padding for screen preview: Top 1.25in, Right 1in, Bottom 1in, Left 1in */
+            padding: 1.25in 1in 1in 1in;
+        }
+
+        /* Intelligent Paging Rules */
+        .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+        .doc-header-grid { display: grid; grid-template-columns: 100px 1fr; gap: 0.5rem; margin-bottom: 1rem; }
+        .doc-header-label { font-weight: bold; text-transform: uppercase; }
+        p { orphans: 3; widows: 3; margin-bottom: 1rem; text-align: justify; }
+
+        /* Dynamic Print Rules - Initialized via JS, but fallback here */
+        @media print {
+            body { background-color: white; }
+            .page { 
+                margin: 0; 
+                padding: 0; 
+                box-shadow: none; 
+                width: 100% !important; 
+                min-height: auto !important; 
+            }
+            #print-ui-controls { display: none !important; }
+        }
+    </style>
+    <style id="dynamic-page-style"></style>
+</head>
+<body>
+
+    <div id="print-ui-controls" class="fixed top-0 left-0 right-0 bg-slate-800 text-white p-3 flex justify-between items-center z-50 shadow-md">
+        <div class="flex items-center space-x-4">
+            <span class="font-bold">Paper Size:</span>
+            <select id="paper-size" onchange="updatePaperSize()" class="bg-slate-700 text-white border border-slate-600 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="long">Long / Folio (8.5" x 13")</option>
+                <option value="a4">A4 (8.27" x 11.69")</option>
+            </select>
+        </div>
+        <div class="flex space-x-3">
+            <button onclick="window.history.back()" class="bg-slate-600 px-4 py-1.5 rounded hover:bg-slate-500 transition font-bold text-sm">Back</button>
+            <button onclick="window.print()" class="bg-blue-600 px-4 py-1.5 rounded hover:bg-blue-500 transition font-bold text-sm flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                Print Document
+            </button>
+        </div>
+    </div>
+
+    <div class="page" id="document-paper">
+        <div id="doc-header" class="avoid-break mb-4">
+            </div>
+
+        <div id="doc-body" class="flex-grow prose max-w-none text-sm leading-relaxed">
+            <p class="text-gray-500 text-center mt-10">Loading document...</p>
+        </div>
+
+        <div class="mt-16 flex justify-between items-end avoid-break" id="doc-footer" style="display: none;">
+            <div class="relative pt-8">
+                <img src="esign.png" alt="" class="absolute top-0 left-4 h-16 opacity-90 z-10" onerror="this.style.display='none'">
+                <p class="font-bold text-md uppercase mb-0 relative z-20">RICARDO C. GARCIA</p>
+                <p class="text-sm relative z-20">PARPO II</p>
+            </div>
+
+            <div class="text-center flex flex-col items-center">
+                <div id="qrcode" class="border p-1 bg-white"></div>
+                <p class="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-wider">Scan to Verify</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Set paper size dynamically (both for screen and physical printer)
+        function updatePaperSize() {
+            const size = document.getElementById('paper-size').value;
+            const paper = document.getElementById('document-paper');
+            const styleTag = document.getElementById('dynamic-page-style');
+            
+            // Margins are always: Top 1.25in, Right 1in, Bottom 1in, Left 1in
+            let css = "";
+            if (size === 'long') {
+                paper.style.width = '8.5in';
+                paper.style.minHeight = '13in';
+                css = `@page { size: 8.5in 13in; margin: 1.25in 1in 1in 1in; }`;
+            } else if (size === 'a4') {
+                paper.style.width = '8.27in';
+                paper.style.minHeight = '11.69in';
+                css = `@page { size: A4; margin: 1.25in 1in 1in 1in; }`;
+            }
+            styleTag.innerHTML = css;
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Initialize Default Paper Size
+            updatePaperSize();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const docId = urlParams.get('doc_id');
+
+            if (!docId) {
+                document.getElementById('doc-body').innerHTML = "<p class='text-red-500 font-bold'>Error: No Document ID provided.</p>";
+                return;
+            }
+
+            // Fetch Document Data
+            const { data: doc, error } = await window.supabaseClient
+                .from('documents')
+                .select('*')
+                .eq('doc_id', docId)
+                .single();
+
+            if (error || !doc) {
+                document.getElementById('doc-body').innerHTML = `<p class='text-red-500 font-bold'>Error loading document: ${error?.message || 'Not found'}</p>`;
+                return;
+            }
+
+            const meta = doc.content_data || {};
+            let headerHtml = "";
+
+            // Format Header based on Document Type (Matching your images)
+            switch (doc.doc_type) {
+                case 'MEMO_INTERNAL':
+                case 'MEMO_EXTERNAL':
+                    headerHtml += `<h2 class="font-bold text-lg mb-6 uppercase">MEMORANDUM</h2>`;
+                    headerHtml += `<div class="doc-header-grid text-sm">`;
+                    if (meta.to) headerHtml += `<div class="doc-header-label">TO</div><div>: <b>${meta.to}</b></div>`;
+                    if (meta.for) headerHtml += `<div class="doc-header-label">FOR</div><div>: <b>${meta.for}</b></div>`;
+                    if (meta.from) headerHtml += `<div class="doc-header-label">FROM</div><div>: <b>${meta.from}</b></div>`;
+                    if (meta.date) headerHtml += `<div class="doc-header-label">DATE</div><div>: <b>${formatDate(meta.date)}</b></div>`;
+                    if (meta.subject) headerHtml += `<div class="doc-header-label mt-4">SUBJECT</div><div class="mt-4 font-bold uppercase">: ${meta.subject}</div>`;
+                    headerHtml += `</div><hr class="border-t-2 border-black mt-2">`;
+                    break;
+
+                case 'ADVISORY':
+                    headerHtml += `<h2 class="font-bold text-lg mb-6 uppercase">ADVISORY</h2>`;
+                    headerHtml += `<div class="doc-header-grid text-sm">`;
+                    if (meta.for) headerHtml += `<div class="doc-header-label">FOR</div><div>: <b>${meta.for}</b></div>`;
+                    if (meta.from) headerHtml += `<div class="doc-header-label">FROM</div><div>: <b>${meta.from}</b></div>`;
+                    if (meta.subject) headerHtml += `<div class="doc-header-label mt-2">SUBJECT</div><div class="mt-2 font-bold uppercase">: ${meta.subject}</div>`;
+                    headerHtml += `</div><hr class="border-t-2 border-black mt-2">`;
+                    break;
+
+                case 'NOTICE_OF_MEETING':
+                    headerHtml += `<h2 class="font-bold text-xl mb-6 text-center underline uppercase">NOTICE OF MEETING</h2>`;
+                    headerHtml += `<div class="doc-header-grid text-sm">`;
+                    if (meta.to) headerHtml += `<div class="doc-header-label">TO</div><div>: ${meta.to}</div>`;
+                    if (meta.from) headerHtml += `<div class="doc-header-label">FROM</div><div>: <b>${meta.from}</b></div>`;
+                    if (meta.subject) headerHtml += `<div class="doc-header-label">SUBJECT</div><div>: ${meta.subject}</div>`;
+                    if (meta.date) headerHtml += `<div class="doc-header-label">DATE</div><div>: <b>${formatDate(meta.date)}</b></div>`;
+                    headerHtml += `</div><hr class="border-t-2 border-black mt-2">`;
+                    break;
+
+                case 'PSO':
+                    headerHtml += `<h2 class="font-bold text-md uppercase">PROVINCIAL SPECIAL ORDER No. ________</h2>`;
+                    headerHtml += `<h2 class="font-bold text-md mb-6 uppercase">SERIES OF ${new Date().getFullYear()}</h2>`;
+                    headerHtml += `<div class="flex mb-2"><span class="font-bold mr-4">SUBJECT:</span> <span class="font-bold uppercase">${meta.subject || doc.title}</span></div>`;
+                    headerHtml += `<hr class="border-t-2 border-black mt-2">`;
+                    break;
+
+                case 'CERT_JUST':
+                    headerHtml += `<h2 class="font-bold text-2xl mb-2 text-center text-[#4a773c] uppercase">${doc.title || 'JUSTIFICATION'}</h2>`;
+                    if (meta.subtitle) headerHtml += `<p class="text-center text-sm mb-6">${meta.subtitle}</p>`;
+                    break;
+
+                case 'LETTER':
+                    if (meta.date) headerHtml += `<p class="mb-6 text-sm">${formatDate(meta.date)}</p>`;
+                    if (meta.to) headerHtml += `<p class="mb-4 font-bold text-sm whitespace-pre-line">${meta.to}</p>`;
+                    if (meta.thru) {
+                        headerHtml += `<div class="flex mb-6 text-sm"><span class="mr-8">THRU:</span> <span class="font-bold whitespace-pre-line">${meta.thru}</span></div>`;
+                    }
+                    if (meta.attention) headerHtml += `<p class="mb-6 text-sm">ATTENTION: <b>${meta.attention}</b></p>`;
+                    headerHtml += `<p class="mb-4 text-sm">Sir/Madam:</p>`;
+                    break;
+            }
+
+            // Inject Header and Body
+            document.getElementById('doc-header').innerHTML = headerHtml;
+            document.getElementById('doc-body').innerHTML = meta.body || '<p>No content provided.</p>';
+
+            // Show footer
+            document.getElementById('doc-footer').style.display = 'flex';
+            
+            // Generate QR Code for Verification
+            const verifyUrl = `${window.location.origin}${window.location.pathname.replace('print.html', '')}verify.html?doc_id=${docId}`;
+            
+            new QRCode(document.getElementById("qrcode"), {
+                text: verifyUrl,
+                width: 64,
+                height: 64,
+                colorDark : "#000000",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.L
+            });
+
+            // Auto-print after a brief delay so QR code finishes rendering
+            setTimeout(() => { window.print(); }, 800);
+        });
+
+        function formatDate(dateString) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(dateString).toLocaleDateString('en-US', options);
+        }
+    </script>
+</body>
+</html>
