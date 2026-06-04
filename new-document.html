@@ -6,13 +6,12 @@
     <title>New Document - DAR DMS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
     
     <script src="db.js"></script>
     <script src="sidebar.js"></script>
 </head>
-<body class="bg-gray-100 font-sans flex h-screen">
+<body class="bg-gray-100 font-sans flex h-screen hidden" id="page-body">
 
     <aside id="sidebar-container" class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex"></aside>
 
@@ -36,51 +35,43 @@
                 </div>
 
                 <div id="dynamic-fields" class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded border hidden">
-                    
                     <div id="field-to" class="dyn-field hidden col-span-1 md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700">TO (Addressee/s)</label>
-                        <textarea id="meta_to" rows="2" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Name, Title, Office..."></textarea>
+                        <textarea id="meta_to" rows="2" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" placeholder="Name, Title, Office..."></textarea>
                     </div>
-
                     <div id="field-for" class="dyn-field hidden col-span-1 md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700">FOR</label>
-                        <input type="text" id="meta_for" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="e.g., All Concerned Personnel" />
+                        <input type="text" id="meta_for" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
                     </div>
-
                     <div id="field-thru" class="dyn-field hidden">
-                        <label class="block text-sm font-medium text-gray-700">THRU (Optional)</label>
-                        <input type="text" id="meta_thru" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Name, Title..." />
+                        <label class="block text-sm font-medium text-gray-700">THRU</label>
+                        <input type="text" id="meta_thru" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
                     </div>
-
                     <div id="field-attention" class="dyn-field hidden">
-                        <label class="block text-sm font-medium text-gray-700">ATTENTION (Optional)</label>
-                        <input type="text" id="meta_attention" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Name of specific person..." />
+                        <label class="block text-sm font-medium text-gray-700">ATTENTION</label>
+                        <input type="text" id="meta_attention" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
                     </div>
-
                     <div id="field-from" class="dyn-field hidden">
                         <label class="block text-sm font-medium text-gray-700">FROM</label>
-                        <input type="text" id="meta_from" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" value="RICARDO C. GARCIA" />
+                        <input type="text" id="meta_from" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="RICARDO C. GARCIA" />
                     </div>
-
                     <div id="field-date" class="dyn-field hidden">
                         <label class="block text-sm font-medium text-gray-700">DATE</label>
-                        <input type="date" id="meta_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" />
+                        <input type="date" id="meta_date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
                     </div>
-
                     <div id="field-subject" class="dyn-field hidden col-span-1 md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700">SUBJECT / TITLE</label>
-                        <input type="text" id="meta_subject" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Enter the subject or title of the document..." />
+                        <input type="text" id="meta_subject" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
                     </div>
-
                     <div id="field-subtitle" class="dyn-field hidden col-span-1 md:col-span-2">
                         <label class="block text-sm font-medium text-gray-700">SUBTITLE</label>
-                        <input type="text" id="meta_subtitle" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="e.g., Rescheduling of the VAWC Culminating Activity..." />
+                        <input type="text" id="meta_subtitle" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
                     </div>
                 </div>
 
                 <div id="editor-container" class="hidden">
                     <label class="block text-sm font-medium text-gray-700 mb-2">Document Body</label>
-                    <textarea id="body_content" placeholder="Type the main content of your document here..."></textarea>
+                    <textarea id="body_content"></textarea>
                 </div>
 
                 <div class="flex items-center justify-end space-x-4 pt-4 border-t">
@@ -94,65 +85,52 @@
     </main>
 
     <script>
-        // 1. Initialize the MS Word-like Editor
-        tinymce.init({
-            selector: '#body_content',
-            height: 600,
-            menubar: 'file edit view insert format tools table',
-            plugins: [
-                'advlist', 'autolink', 'lists', 'link', 'charmap', 'preview',
-                'searchreplace', 'visualblocks', 'fullscreen',
-                'insertdatetime', 'table', 'help', 'wordcount'
-            ],
-            toolbar: 'undo redo | blocks | ' +
-                'bold italic underline | alignleft aligncenter ' +
-                'alignright alignjustify | table | bullist numlist outdent indent | ' +
-                'removeformat | help',
-            content_style: 'body { font-family:Arial,Helvetica,sans-serif; font-size:14px }',
-            promotion: false, 
-            branding: false   
+        let currentUser = null;
+
+        // 1. Check Auth and Init Editor
+        document.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            currentUser = session.user;
+            document.getElementById('page-body').classList.remove('hidden');
+
+            tinymce.init({
+                selector: '#body_content',
+                height: 500,
+                menubar: false,
+                plugins: ['advlist', 'lists', 'table'],
+                toolbar: 'undo redo | bold italic | alignleft aligncenter alignright alignjustify | table | bullist numlist',
+                promotion: false, branding: false   
+            });
         });
 
-        // 2. Dynamic Form Logic based on Document Type
+        // 2. Dynamic Form Logic
         document.getElementById('doc_type').addEventListener('change', function(e) {
             const type = e.target.value;
-            
             document.getElementById('dynamic-fields').classList.remove('hidden');
             document.getElementById('editor-container').classList.remove('hidden');
             document.getElementById('submit-btn').classList.remove('hidden');
-
             document.querySelectorAll('.dyn-field').forEach(el => el.classList.add('hidden'));
 
-            const showFields = (fields) => {
-                fields.forEach(f => document.getElementById(f).classList.remove('hidden'));
-            };
+            const showFields = (fields) => fields.forEach(f => document.getElementById(f).classList.remove('hidden'));
 
             switch(type) {
-                case 'MEMO_INTERNAL':
-                    showFields(['field-to', 'field-from', 'field-subject', 'field-date']);
-                    break;
-                case 'MEMO_EXTERNAL':
-                    showFields(['field-for', 'field-from', 'field-subject', 'field-date']);
-                    break;
-                case 'NOTICE_OF_MEETING':
-                    showFields(['field-to', 'field-from', 'field-subject', 'field-date']);
-                    break;
-                case 'ADVISORY':
-                    showFields(['field-for', 'field-from', 'field-subject']);
-                    break;
-                case 'PSO':
-                    showFields(['field-subject']);
-                    break;
-                case 'CERT_JUST':
-                    showFields(['field-subject', 'field-subtitle']);
-                    break;
-                case 'LETTER':
-                    showFields(['field-to', 'field-thru', 'field-attention', 'field-subject', 'field-date']);
-                    break;
+                case 'MEMO_INTERNAL': showFields(['field-to', 'field-from', 'field-subject', 'field-date']); break;
+                case 'MEMO_EXTERNAL': showFields(['field-for', 'field-from', 'field-subject', 'field-date']); break;
+                case 'NOTICE_OF_MEETING': showFields(['field-to', 'field-from', 'field-subject', 'field-date']); break;
+                case 'ADVISORY': showFields(['field-for', 'field-from', 'field-subject']); break;
+                case 'PSO': showFields(['field-subject']); break;
+                case 'CERT_JUST': showFields(['field-subject', 'field-subtitle']); break;
+                case 'LETTER': showFields(['field-to', 'field-thru', 'field-attention', 'field-subject', 'field-date']); break;
             }
         });
 
-        // 3. Form Submission Logic
+        // 3. Form Submission 
         document.getElementById('document-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -162,90 +140,46 @@
             btn.innerText = "Saving...";
             btn.disabled = true;
             msg.classList.remove('hidden');
-            msg.innerText = "";
 
             const formattedContent = tinymce.get('body_content').getContent();
-
-            if (!formattedContent) {
-                msg.innerText = "Document content cannot be empty.";
-                msg.className = "text-sm font-bold text-red-600 block";
-                btn.innerText = "Save Document";
-                btn.disabled = false;
-                return;
-            }
-
             let contentData = { body: formattedContent };
             
             const checkAndAdd = (fieldId, jsonKey) => {
                 const el = document.getElementById(fieldId);
-                if (el) {
-                    const container = el.closest('.dyn-field');
-                    if (container && !container.classList.contains('hidden') && el.value.trim() !== '') {
-                        contentData[jsonKey] = el.value.trim();
-                    }
+                const container = el.closest('.dyn-field');
+                if (!container.classList.contains('hidden') && el.value.trim() !== '') {
+                    contentData[jsonKey] = el.value.trim();
                 }
             };
 
-            checkAndAdd('meta_to', 'to');
-            checkAndAdd('meta_for', 'for');
-            checkAndAdd('meta_from', 'from');
-            checkAndAdd('meta_date', 'date');
-            checkAndAdd('meta_thru', 'thru');
-            checkAndAdd('meta_attention', 'attention');
-            checkAndAdd('meta_subtitle', 'subtitle'); 
+            ['to', 'for', 'from', 'date', 'thru', 'attention', 'subtitle'].forEach(key => checkAndAdd(`meta_${key}`, key));
 
             let docTitle = document.getElementById('meta_subject').value.trim();
             const typeSelected = document.getElementById('doc_type');
-            
-            if(!docTitle) {
-                docTitle = typeSelected.options[typeSelected.selectedIndex].text + " - Draft";
-            } else {
-                contentData['subject'] = docTitle;
-            }
+            if(!docTitle) docTitle = typeSelected.options[typeSelected.selectedIndex].text + " - Draft";
+            else contentData['subject'] = docTitle;
 
-            // Build the exact payload for Supabase
             const docData = {
                 title: docTitle,
                 doc_type: typeSelected.value,
                 status: 'DRAFT',
-                content_data: contentData 
+                content_data: contentData,
+                creator_id: currentUser.id // Link the document to the logged-in user
             };
 
             try {
-                if (!window.supabaseClient) {
-                    throw new Error("Supabase client is not initialized in db.js.");
-                }
-
-                const { data, error } = await window.supabaseClient
-                    .from('documents')
-                    .insert([docData])
-                    .select();
-
-                if (error) {
-                    throw error; 
-                }
+                const { error } = await window.supabaseClient.from('documents').insert([docData]);
+                if (error) throw error;
 
                 msg.innerText = "Document saved successfully!";
                 msg.className = "text-sm font-bold text-green-600 block";
                 
-                // Reset form
-                document.getElementById('document-form').reset();
-                tinymce.get('body_content').setContent('');
-                document.getElementById('dynamic-fields').classList.add('hidden');
-                document.getElementById('editor-container').classList.add('hidden');
-                document.getElementById('submit-btn').classList.add('hidden');
-                
+                setTimeout(() => window.location.href = 'index.html', 1500); // Send back to dashboard
             } catch (err) {
-                console.error("FULL DB ERROR:", err);
-                
-                // Print the exact Supabase rejection reason
-                let errorDetails = err.message || err.error_description || JSON.stringify(err);
-                
-                msg.innerText = "Database Error: " + errorDetails;
+                console.error("DB ERROR:", err);
+                msg.innerText = err.message || JSON.stringify(err);
                 msg.className = "text-sm font-bold text-red-600 block";
-                
-                alert("Insert Failed: \n\n" + errorDetails);
-                
+                alert("Insert Failed: \n\n" + (err.message || "Check console"));
             } finally {
                 btn.innerText = "Save Document";
                 btn.disabled = false;
