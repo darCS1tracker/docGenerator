@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    <!-- 1. Add TinyMCE for MS Word-like Editing -->
+    <!-- Add TinyMCE for MS Word-like Editing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
     
     <script src="db.js"></script>
@@ -18,43 +18,81 @@
     <aside id="sidebar-container" class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex"></aside>
 
     <main class="flex-1 overflow-y-auto p-8">
-        <!-- Expanded width to max-w-5xl to give tables room to breathe -->
         <div class="max-w-5xl mx-auto bg-white p-8 shadow-md rounded-lg">
             <h2 class="text-2xl font-bold mb-6 text-gray-800">Create New Document</h2>
             
             <form id="document-form" class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Document Type Selection -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Document Type</label>
-                        <select id="doc_type" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border bg-white">
-                            <option value="" disabled selected>Select a document type...</option>
-                            <option value="CERTIFICATION">Certification</option>
-                            <option value="MEMORANDUM">Memorandum</option>
-                            <option value="PSO">Provincial Special Order (PSO)</option>
-                            <option value="NOTICE_OF_MEETING">Notice of Meeting</option>
-                            <option value="ADVISORY">Advisory</option>
-                            <option value="LETTER">Letter</option>
-                        </select>
+                <!-- Document Type Selection -->
+                <div class="w-full md:w-1/2">
+                    <label class="block text-sm font-medium text-gray-700">Document Type</label>
+                    <select id="doc_type" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border bg-white">
+                        <option value="" disabled selected>Select a document type...</option>
+                        <option value="CERT_JUST">Certification / Justification</option>
+                        <option value="MEMO_INTERNAL">Memorandum (Internal - TO)</option>
+                        <option value="MEMO_EXTERNAL">Memorandum (External - FOR)</option>
+                        <option value="PSO">Provincial Special Order (PSO)</option>
+                        <option value="NOTICE_OF_MEETING">Notice of Meeting</option>
+                        <option value="ADVISORY">Advisory</option>
+                        <option value="LETTER">Letter</option>
+                    </select>
+                </div>
+
+                <!-- Dynamic Metadata Fields Container -->
+                <div id="dynamic-fields" class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded border hidden">
+                    
+                    <!-- TO Field (Textarea to allow multiple receivers for letters) -->
+                    <div id="field-to" class="dyn-field hidden col-span-1 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">TO (Addressee/s)</label>
+                        <textarea id="meta_to" rows="2" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Name, Title, Office..."></textarea>
                     </div>
 
-                    <!-- Document Title -->
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Title / Subject</label>
-                        <input type="text" id="title" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="e.g., Q3 Planning Session" />
+                    <!-- FOR Field -->
+                    <div id="field-for" class="dyn-field hidden col-span-1 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">FOR</label>
+                        <input type="text" id="meta_for" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="e.g., All Concerned Personnel" />
+                    </div>
+
+                    <!-- THRU Field (Letters) -->
+                    <div id="field-thru" class="dyn-field hidden">
+                        <label class="block text-sm font-medium text-gray-700">THRU (Optional)</label>
+                        <input type="text" id="meta_thru" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Name, Title..." />
+                    </div>
+
+                    <!-- ATTENTION Field (Letters) -->
+                    <div id="field-attention" class="dyn-field hidden">
+                        <label class="block text-sm font-medium text-gray-700">ATTENTION (Optional)</label>
+                        <input type="text" id="meta_attention" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Name of specific person..." />
+                    </div>
+
+                    <!-- FROM Field -->
+                    <div id="field-from" class="dyn-field hidden">
+                        <label class="block text-sm font-medium text-gray-700">FROM</label>
+                        <input type="text" id="meta_from" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" value="RICARDO C. GARCIA" />
+                    </div>
+
+                    <!-- DATE Field -->
+                    <div id="field-date" class="dyn-field hidden">
+                        <label class="block text-sm font-medium text-gray-700">DATE</label>
+                        <input type="date" id="meta_date" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" />
+                    </div>
+
+                    <!-- SUBJECT / TITLE Field -->
+                    <div id="field-subject" class="dyn-field hidden col-span-1 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">SUBJECT / TITLE</label>
+                        <input type="text" id="meta_subject" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border" placeholder="Enter the subject or title of the document..." />
                     </div>
                 </div>
 
-                <!-- 2. The Rich Text Editor Area -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Document Content</label>
+                <!-- The Rich Text Editor Area -->
+                <div id="editor-container" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Document Body</label>
                     <textarea id="body_content" placeholder="Type the main content of your document here..."></textarea>
                 </div>
 
                 <!-- Submit Button -->
                 <div class="flex items-center justify-end space-x-4 pt-4 border-t">
                     <span id="form-msg" class="text-sm font-bold hidden"></span>
-                    <button type="submit" id="submit-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition">
+                    <button type="submit" id="submit-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition hidden">
                         Save Document
                     </button>
                 </div>
@@ -63,7 +101,7 @@
     </main>
 
     <script>
-        // 3. Initialize the MS Word-like Editor
+        // 1. Initialize the MS Word-like Editor
         tinymce.init({
             selector: '#body_content',
             height: 600,
@@ -78,11 +116,52 @@
                 'alignright alignjustify | table | bullist numlist outdent indent | ' +
                 'removeformat | help',
             content_style: 'body { font-family:Arial,Helvetica,sans-serif; font-size:14px }',
-            promotion: false, // Hides the "Upgrade" button
-            branding: false   // Hides the "Powered by TinyMCE" text
+            promotion: false, 
+            branding: false   
         });
 
-        // 4. Form Submission Logic
+        // 2. Dynamic Form Logic based on Document Type
+        document.getElementById('doc_type').addEventListener('change', function(e) {
+            const type = e.target.value;
+            
+            // Show main containers
+            document.getElementById('dynamic-fields').classList.remove('hidden');
+            document.getElementById('editor-container').classList.remove('hidden');
+            document.getElementById('submit-btn').classList.remove('hidden');
+
+            // Hide all specific fields first
+            document.querySelectorAll('.dyn-field').forEach(el => el.classList.add('hidden'));
+
+            // Helper function to show specific fields
+            const showFields = (fields) => {
+                fields.forEach(f => document.getElementById(f).classList.remove('hidden'));
+            };
+
+            // Logic matching the uploaded document formats
+            switch(type) {
+                case 'MEMO_INTERNAL':
+                    showFields(['field-to', 'field-from', 'field-subject', 'field-date']);
+                    break;
+                case 'MEMO_EXTERNAL':
+                    showFields(['field-for', 'field-from', 'field-subject', 'field-date']);
+                    break;
+                case 'NOTICE_OF_MEETING':
+                    showFields(['field-to', 'field-from', 'field-subject', 'field-date']);
+                    break;
+                case 'ADVISORY':
+                    showFields(['field-for', 'field-from', 'field-subject']);
+                    break;
+                case 'PSO':
+                case 'CERT_JUST':
+                    showFields(['field-subject']);
+                    break;
+                case 'LETTER':
+                    showFields(['field-to', 'field-thru', 'field-attention', 'field-subject', 'field-date']);
+                    break;
+            }
+        });
+
+        // 3. Form Submission Logic
         document.getElementById('document-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -94,10 +173,8 @@
             msg.classList.remove('hidden');
             msg.innerText = "";
 
-            // Get the HTML content directly from the TinyMCE editor, not the textarea
             const formattedContent = tinymce.get('body_content').getContent();
 
-            // Prevent saving if the editor is completely empty
             if (!formattedContent) {
                 msg.innerText = "Document content cannot be empty.";
                 msg.className = "text-sm font-bold text-red-600 block";
@@ -106,18 +183,41 @@
                 return;
             }
 
-            // Gather form data
-            const docData = {
-                title: document.getElementById('title').value,
-                doc_type: document.getElementById('doc_type').value,
-                status: 'DRAFT',
-                content_data: { 
-                    body: formattedContent // Saves the bold, italics, tables, and alignment as HTML
+            // Gather only visible form data to store in JSON
+            let contentData = { body: formattedContent };
+            
+            const checkAndAdd = (fieldId, jsonKey) => {
+                const el = document.getElementById(fieldId);
+                const container = el.closest('.dyn-field');
+                if (!container.classList.contains('hidden') && el.value.trim() !== '') {
+                    contentData[jsonKey] = el.value.trim();
                 }
             };
 
+            checkAndAdd('meta_to', 'to');
+            checkAndAdd('meta_for', 'for');
+            checkAndAdd('meta_from', 'from');
+            checkAndAdd('meta_date', 'date');
+            checkAndAdd('meta_thru', 'thru');
+            checkAndAdd('meta_attention', 'attention');
+
+            // Determine Title (Fallback to Document Type if no subject is provided)
+            let docTitle = document.getElementById('meta_subject').value.trim();
+            const typeSelected = document.getElementById('doc_type');
+            if(!docTitle) {
+                docTitle = typeSelected.options[typeSelected.selectedIndex].text + " - Draft";
+            } else {
+                contentData['subject'] = docTitle;
+            }
+
+            const docData = {
+                title: docTitle,
+                doc_type: typeSelected.value,
+                status: 'DRAFT',
+                content_data: contentData 
+            };
+
             try {
-                // Insert into Supabase
                 const { error } = await window.supabaseClient
                     .from('documents')
                     .insert([docData]);
@@ -127,9 +227,12 @@
                 msg.innerText = "Document saved successfully!";
                 msg.className = "text-sm font-bold text-green-600 block";
                 
-                // Reset form and clear the rich text editor
+                // Reset everything
                 document.getElementById('document-form').reset();
                 tinymce.get('body_content').setContent('');
+                document.getElementById('dynamic-fields').classList.add('hidden');
+                document.getElementById('editor-container').classList.add('hidden');
+                document.getElementById('submit-btn').classList.add('hidden');
                 
             } catch (err) {
                 console.error("Insert error:", err);
