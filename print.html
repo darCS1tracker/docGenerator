@@ -9,10 +9,13 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="db.js"></script>
     
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    
     <style>
         /* Base styling */
         body { 
-            font-family: 'Arial', sans-serif; 
+            font-family: 'Roboto', sans-serif; 
+            font-size: 11pt; /* Enforce size 11 */
             background-color: #f3f4f6; 
             color: black;
         }
@@ -25,7 +28,7 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
             display: flex;
             flex-direction: column;
-            /* Margins applied as padding for screen preview: Top 1.25in, Right 1in, Bottom 1in, Left 1in */
+            /* Margins applied as padding: Top 1.25in, Right 1in, Bottom 1in, Left 1in */
             padding: 1.25in 1in 1in 1in;
         }
 
@@ -33,14 +36,25 @@
         .avoid-break { page-break-inside: avoid; break-inside: avoid; }
         .doc-header-grid { display: grid; grid-template-columns: 100px 1fr; gap: 0.5rem; margin-bottom: 1rem; }
         .doc-header-label { font-weight: bold; text-transform: uppercase; }
-        p { orphans: 3; widows: 3; margin-bottom: 1rem; text-align: justify; }
+        
+        /* Ensure all paragraphs follow size 11 and justify alignment */
+        p, .prose p, .prose span { 
+            orphans: 3; 
+            widows: 3; 
+            margin-bottom: 1rem; 
+            text-align: justify; 
+            font-size: 11pt !important;
+            line-height: 1.5;
+        }
 
-        /* Dynamic Print Rules - Initialized via JS, but fallback here */
+        /* Dynamic Print Rules */
         @media print {
             body { background-color: white; }
             .page { 
                 margin: 0; 
-                padding: 0; 
+                /* Note: We DO NOT set padding to 0 here. 
+                   Keeping the padding ensures our 1.25" and 1" margins are respected 
+                   while the @page margin is 0, successfully hiding the browser's URL/Date headers. */
                 box-shadow: none; 
                 width: 100% !important; 
                 min-height: auto !important; 
@@ -54,8 +68,8 @@
 
     <div id="print-ui-controls" class="fixed top-0 left-0 right-0 bg-slate-800 text-white p-3 flex justify-between items-center z-50 shadow-md">
         <div class="flex items-center space-x-4">
-            <span class="font-bold">Paper Size:</span>
-            <select id="paper-size" onchange="updatePaperSize()" class="bg-slate-700 text-white border border-slate-600 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500">
+            <span class="font-bold text-sm">Paper Size:</span>
+            <select id="paper-size" onchange="updatePaperSize()" class="bg-slate-700 text-white border border-slate-600 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                 <option value="long">Long / Folio (8.5" x 13")</option>
                 <option value="a4">A4 (8.27" x 11.69")</option>
             </select>
@@ -73,20 +87,20 @@
         <div id="doc-header" class="avoid-break mb-4">
             </div>
 
-        <div id="doc-body" class="flex-grow prose max-w-none text-sm leading-relaxed">
+        <div id="doc-body" class="flex-grow prose max-w-none">
             <p class="text-gray-500 text-center mt-10">Loading document...</p>
         </div>
 
         <div class="mt-16 flex justify-between items-end avoid-break" id="doc-footer" style="display: none;">
             <div class="relative pt-8">
                 <img src="esign.png" alt="" class="absolute top-0 left-4 h-16 opacity-90 z-10" onerror="this.style.display='none'">
-                <p class="font-bold text-md uppercase mb-0 relative z-20">RICARDO C. GARCIA</p>
-                <p class="text-sm relative z-20">PARPO II</p>
+                <p class="font-bold uppercase mb-0 relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">RICARDO C. GARCIA</p>
+                <p class="relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">PARPO II</p>
             </div>
 
             <div class="text-center flex flex-col items-center">
                 <div id="qrcode" class="border p-1 bg-white"></div>
-                <p class="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-wider">Scan to Verify</p>
+                <p class="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-wider" style="font-size: 9pt !important; margin-bottom: 0 !important;">Scan to Verify</p>
             </div>
         </div>
     </div>
@@ -98,16 +112,16 @@
             const paper = document.getElementById('document-paper');
             const styleTag = document.getElementById('dynamic-page-style');
             
-            // Margins are always: Top 1.25in, Right 1in, Bottom 1in, Left 1in
             let css = "";
             if (size === 'long') {
                 paper.style.width = '8.5in';
                 paper.style.minHeight = '13in';
-                css = `@page { size: 8.5in 13in; margin: 1.25in 1in 1in 1in; }`;
+                // Margin 0 forces the browser to drop headers/footers. Padding handles the actual layout.
+                css = `@page { size: 8.5in 13in; margin: 0; }`; 
             } else if (size === 'a4') {
                 paper.style.width = '8.27in';
                 paper.style.minHeight = '11.69in';
-                css = `@page { size: A4; margin: 1.25in 1in 1in 1in; }`;
+                css = `@page { size: A4; margin: 0; }`;
             }
             styleTag.innerHTML = css;
         }
@@ -139,12 +153,12 @@
             const meta = doc.content_data || {};
             let headerHtml = "";
 
-            // Format Header based on Document Type (Matching your images)
+            // Format Header based on Document Type
             switch (doc.doc_type) {
                 case 'MEMO_INTERNAL':
                 case 'MEMO_EXTERNAL':
-                    headerHtml += `<h2 class="font-bold text-lg mb-6 uppercase">MEMORANDUM</h2>`;
-                    headerHtml += `<div class="doc-header-grid text-sm">`;
+                    headerHtml += `<h2 class="font-bold mb-6 uppercase" style="font-size: 14pt;">MEMORANDUM</h2>`;
+                    headerHtml += `<div class="doc-header-grid">`;
                     if (meta.to) headerHtml += `<div class="doc-header-label">TO</div><div>: <b>${meta.to}</b></div>`;
                     if (meta.for) headerHtml += `<div class="doc-header-label">FOR</div><div>: <b>${meta.for}</b></div>`;
                     if (meta.from) headerHtml += `<div class="doc-header-label">FROM</div><div>: <b>${meta.from}</b></div>`;
@@ -154,8 +168,8 @@
                     break;
 
                 case 'ADVISORY':
-                    headerHtml += `<h2 class="font-bold text-lg mb-6 uppercase">ADVISORY</h2>`;
-                    headerHtml += `<div class="doc-header-grid text-sm">`;
+                    headerHtml += `<h2 class="font-bold mb-6 uppercase" style="font-size: 14pt;">ADVISORY</h2>`;
+                    headerHtml += `<div class="doc-header-grid">`;
                     if (meta.for) headerHtml += `<div class="doc-header-label">FOR</div><div>: <b>${meta.for}</b></div>`;
                     if (meta.from) headerHtml += `<div class="doc-header-label">FROM</div><div>: <b>${meta.from}</b></div>`;
                     if (meta.subject) headerHtml += `<div class="doc-header-label mt-2">SUBJECT</div><div class="mt-2 font-bold uppercase">: ${meta.subject}</div>`;
@@ -163,8 +177,8 @@
                     break;
 
                 case 'NOTICE_OF_MEETING':
-                    headerHtml += `<h2 class="font-bold text-xl mb-6 text-center underline uppercase">NOTICE OF MEETING</h2>`;
-                    headerHtml += `<div class="doc-header-grid text-sm">`;
+                    headerHtml += `<h2 class="font-bold mb-6 text-center underline uppercase" style="font-size: 16pt;">NOTICE OF MEETING</h2>`;
+                    headerHtml += `<div class="doc-header-grid">`;
                     if (meta.to) headerHtml += `<div class="doc-header-label">TO</div><div>: ${meta.to}</div>`;
                     if (meta.from) headerHtml += `<div class="doc-header-label">FROM</div><div>: <b>${meta.from}</b></div>`;
                     if (meta.subject) headerHtml += `<div class="doc-header-label">SUBJECT</div><div>: ${meta.subject}</div>`;
@@ -173,25 +187,25 @@
                     break;
 
                 case 'PSO':
-                    headerHtml += `<h2 class="font-bold text-md uppercase">PROVINCIAL SPECIAL ORDER No. ________</h2>`;
-                    headerHtml += `<h2 class="font-bold text-md mb-6 uppercase">SERIES OF ${new Date().getFullYear()}</h2>`;
+                    headerHtml += `<h2 class="font-bold uppercase" style="font-size: 12pt;">PROVINCIAL SPECIAL ORDER No. ________</h2>`;
+                    headerHtml += `<h2 class="font-bold mb-6 uppercase" style="font-size: 12pt;">SERIES OF ${new Date().getFullYear()}</h2>`;
                     headerHtml += `<div class="flex mb-2"><span class="font-bold mr-4">SUBJECT:</span> <span class="font-bold uppercase">${meta.subject || doc.title}</span></div>`;
                     headerHtml += `<hr class="border-t-2 border-black mt-2">`;
                     break;
 
                 case 'CERT_JUST':
-                    headerHtml += `<h2 class="font-bold text-2xl mb-2 text-center text-[#4a773c] uppercase">${doc.title || 'JUSTIFICATION'}</h2>`;
-                    if (meta.subtitle) headerHtml += `<p class="text-center text-sm mb-6">${meta.subtitle}</p>`;
+                    headerHtml += `<h2 class="font-bold mb-2 text-center text-[#4a773c] uppercase" style="font-size: 18pt;">${doc.title || 'JUSTIFICATION'}</h2>`;
+                    if (meta.subtitle) headerHtml += `<p class="text-center mb-6">${meta.subtitle}</p>`;
                     break;
 
                 case 'LETTER':
-                    if (meta.date) headerHtml += `<p class="mb-6 text-sm">${formatDate(meta.date)}</p>`;
-                    if (meta.to) headerHtml += `<p class="mb-4 font-bold text-sm whitespace-pre-line">${meta.to}</p>`;
+                    if (meta.date) headerHtml += `<p class="mb-6">${formatDate(meta.date)}</p>`;
+                    if (meta.to) headerHtml += `<p class="mb-4 font-bold whitespace-pre-line">${meta.to}</p>`;
                     if (meta.thru) {
-                        headerHtml += `<div class="flex mb-6 text-sm"><span class="mr-8">THRU:</span> <span class="font-bold whitespace-pre-line">${meta.thru}</span></div>`;
+                        headerHtml += `<div class="flex mb-6"><span class="mr-8">THRU:</span> <span class="font-bold whitespace-pre-line">${meta.thru}</span></div>`;
                     }
-                    if (meta.attention) headerHtml += `<p class="mb-6 text-sm">ATTENTION: <b>${meta.attention}</b></p>`;
-                    headerHtml += `<p class="mb-4 text-sm">Sir/Madam:</p>`;
+                    if (meta.attention) headerHtml += `<p class="mb-6">ATTENTION: <b>${meta.attention}</b></p>`;
+                    headerHtml += `<p class="mb-4">Sir/Madam:</p>`;
                     break;
             }
 
