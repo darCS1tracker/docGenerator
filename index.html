@@ -6,271 +6,85 @@
     <title>Dashboard - DAR DMS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
-    <!-- Scripts from your main folder -->
     <script src="db.js"></script>
     <script src="sidebar.js"></script>
-
-    <!-- Invisible Iframe used for native printing -->
-    <iframe id="printFrame" style="display:none;"></iframe>
 </head>
-<body class="bg-gray-100 font-sans flex h-screen">
+<body class="bg-gray-100 font-sans flex h-screen hidden" id="page-body">
 
     <aside id="sidebar-container" class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex"></aside>
 
-    <main class="flex-1 overflow-y-auto">
-        <header class="h-16 bg-white shadow-sm flex items-center px-8">
-            <h2 class="text-lg font-semibold text-gray-800">Dashboard / Document Workflow</h2>
-        </header>
-        
-        <div class="p-8">
-            <!-- Stats -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-                    <h3 class="text-gray-500 text-sm font-medium uppercase">Total Documents</h3>
-                    <p id="total-docs" class="text-3xl font-bold text-gray-900 mt-2">Loading...</p>
-                </div>
-                <div class="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
-                    <h3 class="text-gray-500 text-sm font-medium uppercase">Action Required</h3>
-                    <p id="action-docs" class="text-3xl font-bold text-gray-900 mt-2">...</p>
-                </div>
+    <main class="flex-1 overflow-y-auto p-8">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-800">Dashboard</h2>
+                <a href="new-document.html" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded shadow">
+                    + New Document
+                </a>
             </div>
 
-            <!-- Table -->
-            <div class="bg-white shadow rounded-lg overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                    <h3 class="text-lg font-medium text-gray-900">Document Queue</h3>
-                    <span class="text-sm text-gray-500 font-medium">Viewing as: <span id="view-role" class="text-blue-600 font-bold uppercase"></span></span>
-                </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Document Title</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="document-list" class="bg-white divide-y divide-gray-200">
-                            <tr><td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">Loading documents...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="bg-white shadow-md rounded-lg overflow-hidden">
+                <table class="min-w-full text-left text-sm">
+                    <thead class="bg-slate-100 border-b">
+                        <tr>
+                            <th class="px-6 py-4 font-bold text-gray-700">Document Title</th>
+                            <th class="px-6 py-4 font-bold text-gray-700">Type</th>
+                            <th class="px-6 py-4 font-bold text-gray-700">Status</th>
+                            <th class="px-6 py-4 font-bold text-gray-700">Date Created</th>
+                        </tr>
+                    </thead>
+                    <tbody id="doc-list" class="divide-y divide-gray-200">
+                        <tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">Loading documents...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </main>
 
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('view-role').innerText = window.currentUser.role.replace(/_/g, ' ');
-            fetchDashboardData();
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 1. Check Authentication FIRST
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            
+            if (!session) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // Show page now that we know they are logged in
+            document.getElementById('page-body').classList.remove('hidden');
+
+            // 2. Fetch Documents
+            const tbody = document.getElementById('doc-list');
+            const { data: documents, error } = await window.supabaseClient
+                .from('documents')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-red-500">Error loading data.</td></tr>`;
+                console.error("Fetch error:", error);
+                return;
+            }
+
+            if (documents.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No documents found.</td></tr>`;
+                return;
+            }
+
+            // 3. Render Documents
+            tbody.innerHTML = documents.map(doc => `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 font-medium text-gray-900">${doc.title || 'Untitled'}</td>
+                    <td class="px-6 py-4 text-gray-600">${doc.doc_type}</td>
+                    <td class="px-6 py-4">
+                        <span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-yellow-300">
+                            ${doc.status}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-gray-500">${new Date(doc.created_at).toLocaleDateString()}</td>
+                </tr>
+            `).join('');
         });
-
-        async function fetchDashboardData() {
-            const listContainer = document.getElementById('document-list');
-            try {
-                const { data: docs, error, count } = await window.supabaseClient
-                    .from('documents')
-                    .select('*', { count: 'exact' })
-                    .order('created_at', { ascending: false });
-
-                if (error) throw error;
-
-                document.getElementById('total-docs').innerText = count || 0;
-                listContainer.innerHTML = '';
-                let actionCount = 0;
-
-                if (docs.length === 0) {
-                    listContainer.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">No documents found.</td></tr>';
-                    document.getElementById('action-docs').innerText = 0;
-                    return;
-                }
-
-                docs.forEach(doc => {
-                    let statusBadge = `<span class="px-2 py-1 text-xs font-bold rounded-full bg-gray-100 text-gray-600">${doc.status.replace(/_/g, ' ')}</span>`;
-                    if (doc.status.includes('PENDING')) statusBadge = `<span class="px-2 py-1 text-xs font-bold rounded-full bg-yellow-100 text-yellow-800">${doc.status.replace(/_/g, ' ')}</span>`;
-                    if (doc.status.includes('APPROVED')) statusBadge = `<span class="px-2 py-1 text-xs font-bold rounded-full bg-green-100 text-green-800">${doc.status.replace(/_/g, ' ')}</span>`;
-
-                    let actionButtons = '';
-                    const role = window.currentUser.role;
-
-                    // --- ACTIONS FOR EMPLOYEE / CREATOR ---
-                    if (role === 'EMPLOYEE' || role === 'ADMIN') {
-                        if (doc.status === 'DRAFT') {
-                            actionCount++;
-                            actionButtons = `
-                                <button onclick="updateDocStatus('${doc.doc_id}', 'PENDING_REVIEW_PRINT')" class="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold py-1 px-3 rounded mr-2 transition">Submit for Review</button>
-                                <button onclick="updateDocStatus('${doc.doc_id}', 'PENDING_HEA_REVIEW_ESIGN')" class="text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 font-bold py-1 px-3 rounded mr-2 transition">Request E-Sign</button>
-                            `;
-                        } else if (doc.status === 'APPROVED_FOR_PRINTING' || doc.status === 'APPROVED_AND_SIGNED') {
-                            actionCount++;
-                            actionButtons = `<button onclick="printDocument('${doc.doc_id}')" class="text-xs bg-green-600 text-white hover:bg-green-700 font-bold py-1 px-3 rounded transition mr-2">Print Document</button>`;
-                        } else {
-                            actionButtons = `<span class="text-xs text-gray-400 italic mr-2">Processing...</span>`;
-                        }
-                        
-                        actionButtons += `<button onclick="duplicateDocument('${doc.doc_id}')" class="text-xs bg-gray-200 text-gray-800 hover:bg-gray-300 font-bold py-1 px-3 rounded transition">Duplicate</button>`;
-                    }
-
-                    // --- ACTIONS FOR REVIEWER (HEA / PARPO) ---
-                    if (role === 'HEA' || role === 'PARPO_II' || role === 'ADMIN') {
-                        if (doc.status === 'PENDING_REVIEW_PRINT') {
-                            actionCount++;
-                            actionButtons = `<button onclick="updateDocStatus('${doc.doc_id}', 'APPROVED_FOR_PRINTING')" class="text-xs bg-green-100 text-green-700 hover:bg-green-200 font-bold py-1 px-3 rounded transition">Approve for Print</button>`;
-                        } else if (doc.status === 'PENDING_HEA_REVIEW_ESIGN') {
-                            actionCount++;
-                            actionButtons = `<button onclick="updateDocStatus('${doc.doc_id}', 'APPROVED_AND_SIGNED')" class="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-bold py-1 px-3 rounded transition mr-2">E-Sign & Approve</button>`;
-                        } else if (doc.status === 'APPROVED_FOR_PRINTING' || doc.status === 'APPROVED_AND_SIGNED') {
-                             actionButtons = `<button onclick="printDocument('${doc.doc_id}')" class="text-xs bg-green-600 text-white hover:bg-green-700 font-bold py-1 px-3 rounded transition mr-2">Print Document</button>`;
-                        } else if (role !== 'EMPLOYEE' && role !== 'ADMIN') {
-                            actionButtons = `<span class="text-xs text-gray-400 italic">No action</span>`;
-                        }
-                    }
-
-                    listContainer.innerHTML += `
-                        <tr class="hover:bg-gray-50 transition">
-                            <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-medium text-gray-900">${doc.title}</div></td>
-                            <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-500">${doc.doc_type.replace(/_/g, ' ')}</div></td>
-                            <td class="px-6 py-4 whitespace-nowrap">${statusBadge}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">${actionButtons}</td>
-                        </tr>
-                    `;
-                });
-                
-                document.getElementById('action-docs').innerText = actionCount;
-            } catch (err) {
-                console.error("Fetch error:", err);
-                listContainer.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-red-500">Error loading documents.</td></tr>';
-            }
-        }
-
-        window.updateDocStatus = async function(docId, newStatus) {
-            if(!confirm(`Move document to: ${newStatus.replace(/_/g, ' ')}?`)) return;
-            try {
-                const { error } = await window.supabaseClient.from('documents').update({ status: newStatus }).eq('doc_id', docId);
-                if (error) throw error;
-                fetchDashboardData(); 
-            } catch (err) {
-                console.error("Update error:", err);
-                alert("Failed to update status.");
-            }
-        };
-
-        window.duplicateDocument = async function(docId) {
-            try {
-                const { data, error } = await window.supabaseClient.from('documents').select('*').eq('doc_id', docId).single();
-                if (error) throw error;
-                localStorage.setItem('cloneDocData', JSON.stringify(data));
-                window.location.href = 'new-document.html'; 
-            } catch (err) {
-                console.error("Clone error:", err);
-                alert("Failed to duplicate document.");
-            }
-        };
-
-        // --- NATIVE PRINTING LOGIC WITH STRICT APPROVAL CHECK ---
-        window.printDocument = async function(docId) {
-            try {
-                // 1. Fetch document data
-                const { data, error } = await window.supabaseClient.from('documents').select('*').eq('doc_id', docId).single();
-                if (error) throw error;
-
-                // 2. STRICT SECURITY CHECK: Only allow printing if the status is officially approved
-                if (data.status !== 'APPROVED_FOR_PRINTING' && data.status !== 'APPROVED_AND_SIGNED') {
-                    alert("SECURITY BLOCK: This document has not been officially approved for printing yet.");
-                    return; // Stop the printing process immediately
-                }
-
-                const cData = data.content_data || {};
-                let printContent = '';
-
-                // 3. Build the HTML layout for printing
-                printContent += `
-                    <html>
-                    <head>
-                        <style>
-                            @media print {
-                                @page { margin: 20mm; size: A4 portrait; }
-                                body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; color: black; }
-                            }
-                            body { font-family: Arial, sans-serif; }
-                            .header-table { width: 100%; margin-bottom: 20px; border-bottom: 2px solid black; padding-bottom: 10px; }
-                            .header-table td { vertical-align: top; padding: 2px 0; }
-                            .header-label { font-weight: bold; width: 120px; }
-                            .header-val { font-weight: bold; text-transform: uppercase; }
-                            .doc-title { text-align: center; font-weight: bold; font-size: 14pt; margin-bottom: 5px; text-transform: uppercase; }
-                            .doc-subtitle { text-align: center; font-weight: bold; margin-bottom: 20px; }
-                            .body-content table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-                            .body-content table, .body-content th, .body-content td { border: 1px solid black; padding: 5px; }
-                            .signatory-box { margin-top: 50px; }
-                            .sign-name { font-weight: bold; text-transform: uppercase; margin-bottom: 2px; }
-                            .footer { position: fixed; bottom: 0; left: 0; width: 100%; text-align: center; font-size: 9pt; color: #555; }
-                        </style>
-                    </head>
-                    <body>
-                `;
-
-                // Add specific headers based on type
-                if (['MEMO_INTERNAL', 'MEMO_EXTERNAL', 'NOTICE_OF_MEETING', 'ADVISORY', 'LETTER'].includes(data.doc_type)) {
-                    printContent += `<div style="font-weight:bold; font-size: 14pt; margin-bottom: 15px; text-transform:uppercase;">${data.doc_type.replace(/_/g, ' ')}</div>`;
-                    printContent += `<table class="header-table">`;
-                    
-                    if(cData.to) printContent += `<tr><td class="header-label">TO:</td><td class="header-val" style="font-weight:normal;">${cData.to.replace(/\n/g, '<br>')}</td></tr>`;
-                    if(cData.for) printContent += `<tr><td class="header-label">FOR:</td><td class="header-val" style="font-weight:normal;">${cData.for}</td></tr>`;
-                    if(cData.thru) printContent += `<tr><td class="header-label">THRU:</td><td class="header-val" style="font-weight:normal;">${cData.thru}</td></tr>`;
-                    if(cData.attention) printContent += `<tr><td class="header-label">ATTENTION:</td><td class="header-val" style="font-weight:normal;">${cData.attention}</td></tr>`;
-                    if(cData.from) printContent += `<tr><td class="header-label">FROM:</td><td class="header-val">${cData.from}</td></tr>`;
-                    if(cData.date) {
-                        const d = new Date(cData.date);
-                        printContent += `<tr><td class="header-label">DATE:</td><td>${d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>`;
-                    }
-                    if(cData.subject || data.title) printContent += `<tr><td class="header-label" style="padding-top:15px;">SUBJECT:</td><td class="header-val" style="padding-top:15px;">${cData.subject || data.title}</td></tr>`;
-                    
-                    printContent += `</table>`;
-                } else if (['CERT_JUST', 'PSO'].includes(data.doc_type)) {
-                    printContent += `<div class="doc-title">${data.doc_type === 'CERT_JUST' ? "JUSTIFICATION / CERTIFICATION" : "PROVINCIAL SPECIAL ORDER"}</div>`;
-                    if(cData.subtitle) printContent += `<div class="doc-subtitle">${cData.subtitle}</div>`;
-                    printContent += `<br>`;
-                }
-
-                // Add Body Content
-                printContent += `<div class="body-content">${cData.body || ""}</div>`;
-
-                // Add Signatory
-                let sigName = cData.from || "RICARDO C. GARCIA";
-                let sigTitle = data.doc_type === 'CERT_JUST' ? "Provincial Agrarian Reform Program Officer II" : "";
-                
-                printContent += `
-                    <div class="signatory-box">
-                        <div class="sign-name">${sigName}</div>
-                        <div>${sigTitle}</div>
-                    </div>
-                `;
-
-                // Add System Footer
-                printContent += `<div class="footer">Department of Agrarian Reform Provincial Office<br>Carnation Street, Triangulo, Naga City, Camarines Sur<br><span style="font-size:7pt;">Generated by DAR DMS [ID: ${docId}]</span></div>`;
-
-                printContent += `</body></html>`;
-
-                // 4. Inject into iframe and trigger print
-                const frame = document.getElementById('printFrame');
-                frame.contentWindow.document.open();
-                frame.contentWindow.document.write(printContent);
-                frame.contentWindow.document.close();
-                
-                // Wait a tiny bit for the frame to render before calling print
-                setTimeout(() => {
-                    frame.contentWindow.focus();
-                    frame.contentWindow.print();
-                }, 250);
-
-            } catch (err) {
-                console.error("Print error:", err);
-                alert("Failed to generate document for printing.");
-            }
-        };
     </script>
 </body>
 </html>
