@@ -20,7 +20,6 @@
         </header>
         
         <div class="p-8">
-            <!-- Stats Section -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <div class="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
                     <h3 class="text-gray-500 text-sm font-medium uppercase">Total Documents</h3>
@@ -32,27 +31,24 @@
                 </div>
             </div>
 
-            <!-- Workflow Queue Section -->
             <div class="bg-white shadow rounded-lg overflow-hidden">
                 <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                     <h3 class="text-lg font-medium text-gray-900">Document Queue</h3>
-                    <span class="text-sm text-gray-500 font-medium">Viewing as: <span id="view-role" class="text-blue-600 font-bold"></span></span>
+                    <span class="text-sm text-gray-500 font-medium">Viewing as: <span id="view-role" class="text-blue-600 font-bold uppercase"></span></span>
                 </div>
                 
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-gray-100">
                             <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Document Title</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Document Title</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="document-list" class="bg-white divide-y divide-gray-200">
-                            <tr>
-                                <td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">Loading documents...</td>
-                            </tr>
+                            <tr><td colspan="4" class="px-6 py-4 text-center text-sm text-gray-500">Loading documents...</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -62,15 +58,15 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('view-role').innerText = window.currentUser.role.replace('_', ' ');
+            // Display the current user's role on the dashboard
+            document.getElementById('view-role').innerText = window.currentUser.role.replace(/_/g, ' ');
             fetchDashboardData();
         });
 
         async function fetchDashboardData() {
             const listContainer = document.getElementById('document-list');
-            
             try {
-                // Fetch all documents (In production, filter by creator_id if role is EMPLOYEE)
+                // Fetch documents ordered by newest first
                 const { data: docs, error, count } = await window.supabaseClient
                     .from('documents')
                     .select('*', { count: 'exact' })
@@ -89,91 +85,70 @@
                 }
 
                 docs.forEach(doc => {
-                    // 1. Determine Status Badge Styling
+                    // Status Badge Styling
                     let statusBadge = `<span class="px-2 py-1 text-xs font-bold rounded-full bg-gray-100 text-gray-600">${doc.status.replace(/_/g, ' ')}</span>`;
                     if (doc.status.includes('PENDING')) statusBadge = `<span class="px-2 py-1 text-xs font-bold rounded-full bg-yellow-100 text-yellow-800">${doc.status.replace(/_/g, ' ')}</span>`;
                     if (doc.status.includes('APPROVED')) statusBadge = `<span class="px-2 py-1 text-xs font-bold rounded-full bg-green-100 text-green-800">${doc.status.replace(/_/g, ' ')}</span>`;
 
-                    // 2. Dynamic Workflow Actions based on Role and Status
                     let actionButtons = '';
                     const role = window.currentUser.role;
 
-                    // --- ACTIONS FOR DRAFTER / EMPLOYEE ---
+                    // --- ACTIONS FOR EMPLOYEE / CREATOR ---
                     if (role === 'EMPLOYEE' || role === 'ADMIN') {
                         if (doc.status === 'DRAFT') {
                             actionCount++;
                             actionButtons = `
-                                <button onclick="updateDocStatus('${doc.doc_id}', 'PENDING_REVIEW_PRINT')" class="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold py-1 px-3 rounded mr-2 transition">
-                                    Submit for Review
-                                </button>
-                                <button onclick="updateDocStatus('${doc.doc_id}', 'PENDING_HEA_REVIEW_ESIGN')" class="text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 font-bold py-1 px-3 rounded transition">
-                                    Request E-Sign
-                                </button>
+                                <button onclick="updateDocStatus('${doc.doc_id}', 'PENDING_REVIEW_PRINT')" class="text-xs bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold py-1 px-3 rounded mr-2 transition">Submit for Review</button>
+                                <button onclick="updateDocStatus('${doc.doc_id}', 'PENDING_HEA_REVIEW_ESIGN')" class="text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 font-bold py-1 px-3 rounded mr-2 transition">Request E-Sign</button>
                             `;
                         } else if (doc.status === 'APPROVED_FOR_PRINTING' || doc.status === 'APPROVED_AND_SIGNED') {
                             actionCount++;
-                            actionButtons = `
-                                <button onclick="printDocument('${doc.doc_id}', '${doc.title}')" class="text-xs bg-green-600 text-white hover:bg-green-700 font-bold py-1 px-3 rounded transition">
-                                    Print Document
-                                </button>
-                            `;
+                            actionButtons = `<button onclick="printDocument('${doc.doc_id}')" class="text-xs bg-green-600 text-white hover:bg-green-700 font-bold py-1 px-3 rounded transition mr-2">Print Document</button>`;
                         } else {
-                            actionButtons = `<span class="text-xs text-gray-400 italic">Waiting on HEA...</span>`;
+                            actionButtons = `<span class="text-xs text-gray-400 italic mr-2">Processing...</span>`;
                         }
+                        
+                        // Duplicate button is always available to the employee
+                        actionButtons += `<button onclick="duplicateDocument('${doc.doc_id}')" class="text-xs bg-gray-200 text-gray-800 hover:bg-gray-300 font-bold py-1 px-3 rounded transition">Duplicate</button>`;
                     }
 
                     // --- ACTIONS FOR REVIEWER (HEA / PARPO) ---
                     if (role === 'HEA' || role === 'PARPO_II' || role === 'ADMIN') {
                         if (doc.status === 'PENDING_REVIEW_PRINT') {
                             actionCount++;
-                            actionButtons = `
-                                <button onclick="updateDocStatus('${doc.doc_id}', 'APPROVED_FOR_PRINTING')" class="text-xs bg-green-100 text-green-700 hover:bg-green-200 font-bold py-1 px-3 rounded transition">
-                                    Review & Approve
-                                </button>
-                            `;
+                            actionButtons = `<button onclick="updateDocStatus('${doc.doc_id}', 'APPROVED_FOR_PRINTING')" class="text-xs bg-green-100 text-green-700 hover:bg-green-200 font-bold py-1 px-3 rounded transition">Approve for Print</button>`;
                         } else if (doc.status === 'PENDING_HEA_REVIEW_ESIGN') {
                             actionCount++;
-                            actionButtons = `
-                                <button onclick="updateDocStatus('${doc.doc_id}', 'APPROVED_AND_SIGNED')" class="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-bold py-1 px-3 rounded transition">
-                                    Review, E-Sign & Print
-                                </button>
-                            `;
+                            actionButtons = `<button onclick="updateDocStatus('${doc.doc_id}', 'APPROVED_AND_SIGNED')" class="text-xs bg-indigo-100 text-indigo-700 hover:bg-indigo-200 font-bold py-1 px-3 rounded transition">E-Sign & Approve</button>`;
                         } else if (role !== 'EMPLOYEE' && role !== 'ADMIN') {
-                             actionButtons = `<span class="text-xs text-gray-400 italic">No action required</span>`;
+                            actionButtons = `<span class="text-xs text-gray-400 italic">No action</span>`;
                         }
                     }
 
-                    // 3. Render the Table Row
+                    // Render Row
                     listContainer.innerHTML += `
                         <tr class="hover:bg-gray-50 transition">
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-gray-900">${doc.title}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm text-gray-500">${doc.doc_type}</div>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                ${statusBadge}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                ${actionButtons}
-                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm font-medium text-gray-900">${doc.title}</div></td>
+                            <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-500">${doc.doc_type.replace(/_/g, ' ')}</div></td>
+                            <td class="px-6 py-4 whitespace-nowrap">${statusBadge}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">${actionButtons}</td>
                         </tr>
                     `;
                 });
-
+                
+                // Update the actionable item counter
                 document.getElementById('action-docs').innerText = actionCount;
-
             } catch (err) {
                 console.error("Fetch error:", err);
                 listContainer.innerHTML = '<tr><td colspan="4" class="px-6 py-4 text-center text-sm text-red-500">Error loading documents.</td></tr>';
             }
         }
 
-        // Global function to handle status progression
+        // --- GLOBAL FUNCTIONS ---
+
+        // Update Document Status
         window.updateDocStatus = async function(docId, newStatus) {
-            if(!confirm(`Proceed to move document to: ${newStatus.replace(/_/g, ' ')}?`)) return;
-            
+            if(!confirm(`Move document to: ${newStatus.replace(/_/g, ' ')}?`)) return;
             try {
                 const { error } = await window.supabaseClient
                     .from('documents')
@@ -181,19 +156,39 @@
                     .eq('doc_id', docId);
 
                 if (error) throw error;
-                
-                // Refresh the table to show updated status and buttons
                 fetchDashboardData(); 
             } catch (err) {
                 console.error("Update error:", err);
-                alert("Failed to update status. Check console.");
+                alert("Failed to update status.");
             }
         };
 
-        // Global function placeholder for printing
-        window.printDocument = function(docId, title) {
-            alert(`Initiating print and/or PDF generation sequence for: ${title}`);
-            // Future logic: Fetch doc JSON, compile HTML layout, trigger window.print() or jsPDF
+        // Duplicate Document Logic
+        window.duplicateDocument = async function(docId) {
+            try {
+                // Fetch the original document data
+                const { data, error } = await window.supabaseClient
+                    .from('documents')
+                    .select('*')
+                    .eq('doc_id', docId)
+                    .single();
+                
+                if (error) throw error;
+
+                // Save to local storage for the drafting page to catch
+                localStorage.setItem('cloneDocData', JSON.stringify(data));
+                
+                // Redirect to the new document generator page
+                window.location.href = 'new-document.html'; 
+            } catch (err) {
+                console.error("Clone error:", err);
+                alert("Failed to duplicate document.");
+            }
+        };
+
+        // Print Document Placeholder
+        window.printDocument = function(docId) { 
+            alert(`Ready to print Document ID: ${docId}. Next, we will build the PDF generator layout!`); 
         };
     </script>
 </body>
