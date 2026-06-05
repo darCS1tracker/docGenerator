@@ -22,7 +22,7 @@
         
         /* The on-screen paper preview */
         .page { 
-            background: white; 
+            background-color: white; 
             margin: 4rem auto; 
             box-sizing: border-box; 
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
@@ -30,25 +30,31 @@
             flex-direction: column;
             /* Top 1.25in, Right 1in, Bottom 1in, Left 1in */
             padding: 1.25in 1in 1in 1in;
+            position: relative;
+            /* Force background printing */
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            background-size: 100% 100% !important;
+            background-position: center !important;
+            background-repeat: no-repeat !important;
         }
 
         /* Intelligent Paging Rules */
         .avoid-break { page-break-inside: avoid; break-inside: avoid; }
         
-        /* Exact layout based on image_305b04.png */
+        /* Exact layout grids */
         .doc-header-grid { 
             display: grid; 
-            /* Col 1: Label (approx 80px), Col 2: Colon (20px), Col 3: Values */
             grid-template-columns: 80px 20px 1fr; 
-            row-gap: 1rem; /* Space between TO, FROM, DATE, etc. */
+            row-gap: 1rem; 
             margin-bottom: 1.5rem; 
         }
         
-        /* Document Body Paragraphs - Enforcing Double Space (approx 1.5rem to 2rem) */
+        /* Document Body Paragraphs - Enforcing Double Space */
         p, .prose p, .prose span { 
             orphans: 3; 
             widows: 3; 
-            margin-bottom: 1.5rem !important; /* Double space per paragraph */
+            margin-bottom: 1.5rem !important; 
             text-align: justify; 
             font-size: 11pt !important;
             line-height: 1.5;
@@ -60,7 +66,7 @@
             margin-bottom: 2rem;
         }
 
-        /* Dynamic Print Rules */
+        /* Dynamic Print Rules - Hides browser metadata natively */
         @media print {
             body { background-color: white; }
             .page { 
@@ -102,15 +108,21 @@
         </div>
 
         <div class="mt-16 flex justify-between items-end avoid-break" id="doc-footer" style="display: none;">
-            <div class="relative pt-8">
+            
+            <div class="relative pt-8 pb-4">
                 <img src="esign.png" alt="" class="absolute top-0 left-4 h-16 opacity-90 z-10" onerror="this.style.display='none'">
                 <p class="font-bold uppercase mb-0 relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">RICARDO C. GARCIA</p>
-                <p class="relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">PARPO II</p>
+                <p class="relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">Provincial Agrarian Reform Program Officer II</p>
             </div>
 
-            <div class="text-center flex flex-col items-center">
-                <div id="qrcode" class="border p-1 bg-white"></div>
-                <p class="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-wider" style="font-size: 9pt !important; margin-bottom: 0 !important;">Scan to Verify</p>
+            <div class="text-center flex flex-col items-center pb-2">
+                <p class="font-bold mb-0" style="font-size: 10.5pt; font-family: 'Arial Narrow', Arial, sans-serif; letter-spacing: -0.2px;">Department of Agrarian Reform</p>
+                <p class="mb-1 uppercase" style="font-size: 8pt;">DAR PROVINCIAL OFFICE - CAMARINES SUR 1</p>
+                
+                <div id="qrcode" class="p-1 bg-white mb-1"></div>
+                
+                <p class="text-[8pt] font-bold mt-1 tracking-wider uppercase m-0" id="qr-serial"></p>
+                <p class="text-[7pt] uppercase m-0 font-bold tracking-widest text-gray-700">OSEC-SCME-MC</p>
             </div>
         </div>
     </div>
@@ -121,34 +133,40 @@
             const paper = document.getElementById('document-paper');
             const styleTag = document.getElementById('dynamic-page-style');
             
+            // Generate Supabase storage URL dynamically based on size
+            const bgFileName = size === 'long' ? 'bg_memo.jpg' : 'bg_memo_a4.jpg';
+            
+            // NOTE: Change 'images' to your actual bucket name or path if it's nested (e.g., 'public/images')
+            const { data: bgData } = window.supabaseClient.storage.from('images').getPublicUrl(bgFileName);
+            
+            if (bgData && bgData.publicUrl) {
+                paper.style.backgroundImage = `url('${bgData.publicUrl}')`;
+            }
+
             let css = "";
             if (size === 'long') {
                 paper.style.width = '8.5in';
                 paper.style.minHeight = '13in';
+                // margin: 0 strictly removes browser-injected header/footer text!
                 css = `@page { size: 8.5in 13in; margin: 0; }`; 
             } else if (size === 'a4') {
                 paper.style.width = '8.27in';
                 paper.style.minHeight = '11.69in';
+                // margin: 0 strictly removes browser-injected header/footer text!
                 css = `@page { size: A4; margin: 0; }`;
             }
             styleTag.innerHTML = css;
         }
 
-        // AUTO-FORMATTER: 
-        // Makes Line 1 BOLD & UPPERCASE. Makes Line 2+ NORMAL case.
-        // Also cleans up any messy HTML from the database to ensure perfect formatting.
+        // AUTO-FORMATTER
         function formatHeaderValue(val, isSubjectOrDate = false) {
             if (!val) return "";
-            
-            // Strip any existing HTML so we can control it cleanly
             let cleanString = val.replace(/<br\s*\/?>/gi, '\n').replace(/<\/?[^>]+(>|$)/g, "");
             let lines = cleanString.split('\n');
             
             if (isSubjectOrDate) {
-                // For Subject and Date, EVERYTHING is bold and uppercase
                 return `<b class="uppercase">${lines.join('<br>')}</b>`;
             } else {
-                // For TO and FROM: Line 1 = Bold+Upper, Line 2+ = Normal
                 if (lines.length > 0) {
                     lines[0] = `<b class="uppercase">${lines[0]}</b>`;
                 }
@@ -156,9 +174,7 @@
             }
         }
 
-        // Builder for the 3-column Grid (Label | : | Value)
         function makeGridRow(label, value, isSubjectOrDate = false) {
-            // Even if value is blank, we render the row so the Subject/Date label doesn't disappear
             let safeValue = value || " "; 
             let formattedValue = formatHeaderValue(safeValue, isSubjectOrDate);
             
@@ -170,6 +186,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
+            // Wait for DB initialization if applicable, update paper & bg image first
             updatePaperSize();
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -194,7 +211,6 @@
             const meta = doc.content_data || {};
             let headerHtml = "";
             
-            // FALLBACKS: If they didn't fill it out, we still have a fallback
             const finalSubject = meta.subject || doc.title || "";
             const finalDate = meta.date ? formatDate(meta.date) : formatDate(doc.created_at);
 
@@ -204,10 +220,9 @@
                     headerHtml += `<h2 class="font-bold mb-8 uppercase" style="font-size: 14pt;">MEMORANDUM</h2>`;
                     headerHtml += `<div class="doc-header-grid">`;
                     headerHtml += makeGridRow("TO", meta.to);
-                    headerHtml += makeGridRow("FOR", meta.for);
-                    headerHtml += makeGridRow("FROM", meta.from); // 1st line bold, 2nd normal
-                    headerHtml += makeGridRow("DATE", finalDate, true); // True = All Bold
-                    headerHtml += makeGridRow("SUBJECT", finalSubject, true); // True = All Bold
+                    headerHtml += makeGridRow("FROM", meta.from);
+                    headerHtml += makeGridRow("DATE", finalDate, true); 
+                    headerHtml += makeGridRow("SUBJECT", finalSubject, true); 
                     headerHtml += `</div><hr class="divider">`;
                     break;
 
@@ -238,8 +253,8 @@
                     break;
 
                 case 'CERT_JUST':
-                    headerHtml += `<h2 class="font-bold mb-2 text-center text-[#4a773c] uppercase" style="font-size: 18pt;">${doc.title || 'JUSTIFICATION'}</h2>`;
-                    if (meta.subtitle) headerHtml += `<p class="text-center mb-6">${meta.subtitle.replace(/\n/g, '<br>')}</p>`;
+                    headerHtml += `<h2 class="font-bold mb-2 text-center uppercase" style="font-size: 18pt;">${doc.title || 'JUSTIFICATION'}</h2>`;
+                    if (meta.subtitle) headerHtml += `<p class="text-center mb-6 font-bold" style="font-size:10pt;">${meta.subtitle.replace(/\n/g, '<br>')}</p>`;
                     break;
 
                 case 'LETTER':
@@ -259,11 +274,19 @@
 
             document.getElementById('doc-header').innerHTML = headerHtml;
             document.getElementById('doc-body').innerHTML = meta.body || '<p>No content provided.</p>';
+            
+            // Set up serial number under QR code
+            document.getElementById('qr-serial').innerText = doc.serial_number || doc.doc_id.split('-')[0].toUpperCase();
             document.getElementById('doc-footer').style.display = 'flex';
             
             const verifyUrl = `${window.location.origin}${window.location.pathname.replace('print.html', '')}verify.html?doc_id=${docId}`;
             new QRCode(document.getElementById("qrcode"), {
-                text: verifyUrl, width: 64, height: 64, colorDark : "#000000", colorLight : "#ffffff", correctLevel : QRCode.CorrectLevel.L
+                text: verifyUrl, 
+                width: 72, 
+                height: 72, 
+                colorDark : "#000000", 
+                colorLight : "#ffffff", 
+                correctLevel : QRCode.CorrectLevel.M
             });
 
             setTimeout(() => { window.print(); }, 800);
