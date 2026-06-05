@@ -23,7 +23,7 @@
         
         /* The on-screen paper preview */
         .page { 
-            background-color: white; 
+            background-color: white; /* Default white, JS will make transparent if BG loads */
             margin: 4rem auto; 
             box-sizing: border-box; 
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
@@ -42,7 +42,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            z-index: -1;
+            z-index: 0;
             object-fit: fill; /* Stretches exactly to paper bounds */
             display: none;
         }
@@ -121,34 +121,28 @@
 
         <div class="content-layer">
             <div id="doc-header" class="avoid-break mb-4">
-                <!-- Header injected via JS -->
-            </div>
+                </div>
 
             <div id="doc-body" class="flex-grow prose max-w-none mt-4">
                 <p class="text-gray-500 text-center mt-10">Loading document...</p>
             </div>
 
-            <!-- Footer Area: Stacked Vertically -->
             <div class="mt-auto flex flex-col items-start avoid-break pb-4" id="doc-footer" style="display: none;">
                 
-                <!-- Top: Signatory -->
                 <div class="relative pt-8 mb-8">
                     <img src="esign.png" alt="" class="absolute top-0 left-4 h-16 opacity-90 z-10" onerror="this.style.display='none'">
                     <p class="font-bold uppercase mb-0 relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">RICARDO C. GARCIA</p>
                     <p class="relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">Provincial Agrarian Reform Program Officer II</p>
                 </div>
 
-                <!-- Bottom: Horizontal QR Block underneath the Signatory -->
                 <div class="flex items-center" style="font-family: Arial, Helvetica, sans-serif;">
                     
-                    <!-- QR Code directly on the left -->
-                    <div id="qrcode" class="mr-3" style="flex-shrink: 0;"></div>
+                    <div id="qrcode" class="mr-4" style="flex-shrink: 0;"></div>
                     
-                    <!-- Formatted text directly on the right -->
-                    <div class="text-left" style="line-height: 1.3;">
-                        <p class="font-bold m-0" style="font-size: 9pt; color: #1e293b;">Department of Agrarian Reform</p>
-                        <p class="m-0" style="font-size: 8pt; color: #334155;">Provincial Office of Camarines Sur 1</p>
-                        <p class="italic m-0" style="font-size: 8pt; color: #475569;">Office of the Provincial Director</p>
+                    <div class="text-left" style="line-height: 1.4;">
+                        <p class="font-bold m-0" style="font-size: 10pt; color: #003876;">Department of Agrarian Reform</p>
+                        <p class="m-0" style="font-size: 9.5pt; color: #2e74b5; margin-top: 2px !important;">Provincial Office of Camarines Sur 1</p>
+                        <p class="italic m-0" style="font-size: 9.5pt; color: #2e74b5; margin-top: 6px !important;">Office of the Provincial Director</p>
                     </div>
 
                 </div>
@@ -172,8 +166,11 @@
             if (bgData && bgData.publicUrl) {
                 bgImgElement.src = bgData.publicUrl;
                 bgImgElement.style.display = 'block';
+                // Remove the white background so the image actually shows through
+                paper.style.backgroundColor = 'transparent';
             } else {
                 bgImgElement.style.display = 'none';
+                paper.style.backgroundColor = 'white';
             }
 
             let css = "";
@@ -310,11 +307,11 @@
             
             const verifyUrl = `${window.location.origin}${window.location.pathname.replace('print.html', '')}verify.html?doc_id=${docId}`;
             
-            // Render perfectly compact formal QR Code (60x60 dimensions)
+            // Render perfectly compact formal QR Code (64x64 dimensions)
             new QRCode(document.getElementById("qrcode"), {
                 text: verifyUrl, 
-                width: 60, 
-                height: 60, 
+                width: 64, 
+                height: 64, 
                 colorDark : "#000000", 
                 colorLight : "#ffffff", 
                 correctLevel : QRCode.CorrectLevel.M
