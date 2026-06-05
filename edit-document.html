@@ -113,11 +113,9 @@
     <script>
         let currentUser = null;
         let currentDocId = null;
-        // FIX 1: Add a variable to store existing JSON data
         let currentContentData = {}; 
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // 1. Get Document ID from URL
             const urlParams = new URLSearchParams(window.location.search);
             currentDocId = urlParams.get('doc_id');
 
@@ -127,7 +125,6 @@
                 return;
             }
 
-            // 2. Check Auth
             const { data: { session } } = await window.supabaseClient.auth.getSession();
             if (!session) {
                 window.location.href = 'login.html';
@@ -136,7 +133,6 @@
             currentUser = session.user;
             document.getElementById('page-body').classList.remove('hidden');
 
-            // 3. Fetch Document Data from Supabase
             try {
                 const { data: doc, error } = await window.supabaseClient
                     .from('documents')
@@ -146,10 +142,8 @@
 
                 if (error || !doc) throw error || new Error("Document not found");
 
-                // FIX 2: Save the existing JSON data so we don't overwrite it later
                 currentContentData = doc.content_data || {}; 
 
-                // Security Check: If it's already approved, block editing unless they are an HEA
                 if (doc.status === 'APPROVED') {
                     alert("This document is already APPROVED and cannot be edited directly.");
                     window.location.href = 'index.html';
@@ -157,20 +151,15 @@
                 }
 
                 document.getElementById('doc-status-badge').innerText = `Status: ${doc.status}`;
-                
-                // 4. Populate Form Fields
                 document.getElementById('doc_type').value = doc.doc_type;
                 
-                // Trigger the change event manually to show/hide the correct fields
                 triggerFieldVisibility(doc.doc_type);
 
-                // Populate Dynamic Fields
                 const meta = doc.content_data || {};
                 
-                // Helper to safely set values and remove <br> tags for editing
                 const setVal = (id, val) => {
-                    if (val) {
-                        let cleanVal = val.replace(/<br\s*[\/]?>/gi, "\n");
+                    if (val !== undefined && val !== null) {
+                        let cleanVal = String(val).replace(/<br\s*[\/]?>/gi, "\n");
                         document.getElementById(id).value = cleanVal;
                     }
                 };
@@ -184,7 +173,6 @@
                 setVal('meta_subject', meta.subject || doc.title);
                 setVal('meta_subtitle', meta.subtitle);
 
-                // Initialize TinyMCE WITH the fetched body content
                 tinymce.init({
                     selector: '#body_content',
                     height: 500,
@@ -197,7 +185,6 @@
                             if (meta.body) {
                                 editor.setContent(meta.body);
                             }
-                            // Hide loading overlay once editor is ready
                             document.getElementById('loading-overlay').classList.add('hidden');
                         });
                     }
@@ -210,7 +197,6 @@
             }
         });
 
-        // Field Visibility Logic
         function triggerFieldVisibility(type) {
             document.getElementById('dynamic-fields').classList.remove('hidden');
             document.getElementById('editor-container').classList.remove('hidden');
@@ -230,21 +216,16 @@
             }
         }
 
-        // Helper function to re-format header fields on save
         function formatHeaderField(text) {
             if (!text) return "";
-            
-            // Remove existing HTML tags just in case they are saving again
             let cleanText = text.replace(/<[^>]*>?/gm, '');
             const lines = cleanText.split('\n');
-            
             if (lines.length > 0) {
                 lines[0] = `<b>${lines[0].toUpperCase()}</b>`;
             }
             return lines.join('<br>');
         }
 
-        // UPDATE Submission
         document.getElementById('document-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -257,13 +238,14 @@
 
             const formattedContent = tinymce.get('body_content').getContent();
             
-            // FIX 3: Spread existing data into new object so we don't lose hidden/unchanged fields
-            let contentData = { ...currentContentData, body: formattedContent }; 
+            const existingData = (currentContentData && typeof currentContentData === 'object') ? currentContentData : {};
+            let contentData = { ...existingData, body: formattedContent }; 
             
+            // FIX: Removed empty string validation so users can successfully clear fields
             const addNormalField = (fieldId, jsonKey) => {
                 const el = document.getElementById(fieldId);
                 const container = el.closest('.dyn-field');
-                if (!container.classList.contains('hidden') && el.value.trim() !== '') {
+                if (!container.classList.contains('hidden')) {
                     contentData[jsonKey] = el.value.trim();
                 }
             };
@@ -271,7 +253,7 @@
             const addFormattedField = (fieldId, jsonKey) => {
                 const el = document.getElementById(fieldId);
                 const container = el.closest('.dyn-field');
-                if (!container.classList.contains('hidden') && el.value.trim() !== '') {
+                if (!container.classList.contains('hidden')) {
                     contentData[jsonKey] = formatHeaderField(el.value.trim());
                 }
             };
@@ -282,29 +264,33 @@
             let docTitle = document.getElementById('meta_subject').value.trim();
             const typeSelected = document.getElementById('doc_type');
             
-            // FIX 4: Handle draft fallback title logic BEFORE saving to JSON
             if(!docTitle) {
                 docTitle = typeSelected.options[typeSelected.selectedIndex].text + " - Draft";
             }
             
-            // FIX 5: Force the string to be uppercase, then assign it to the JSON payload
             docTitle = docTitle.toUpperCase();
             contentData['subject'] = docTitle;
 
-            // Set the update payload
             const updatePayload = {
-                title: docTitle, // This now receives the forced uppercase string
+                title: docTitle,
                 content_data: contentData,
                 updated_at: new Date().toISOString()
             };
 
             try {
-                const { error } = await window.supabaseClient
+                // FIX: Added .select() to force Supabase to verify rows were actually updated.
+                const { data, error } = await window.supabaseClient
                     .from('documents')
                     .update(updatePayload)
-                    .eq('doc_id', currentDocId);
+                    .eq('doc_id', currentDocId)
+                    .select();
 
                 if (error) throw error;
+                
+                // Catch the silent Row Level Security failure
+                if (!data || data.length === 0) {
+                     throw new Error("Supabase blocked the update (0 rows modified). Check your Row Level Security (RLS) 'UPDATE' policy for this table.");
+                }
 
                 msg.innerText = "Document updated successfully!";
                 msg.className = "text-sm font-bold text-green-600 block";
@@ -323,4 +309,3 @@
     </script>
 </body>
 </html>
-
