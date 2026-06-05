@@ -167,8 +167,6 @@
                     if (val) {
                         // If it's a textarea, convert <br> back to newlines (\n) for easy editing
                         let cleanVal = val.replace(/<br\s*[\/]?>/gi, "\n");
-                        // Optional: strip <b> tags if you want them to type raw text again
-                        // cleanVal = cleanVal.replace(/<\/?b>/gi, ""); 
                         document.getElementById(id).value = cleanVal;
                     }
                 };
@@ -242,7 +240,7 @@
             return lines.join('<br>');
         }
 
-        // UPDATE Submission (Instead of Insert)
+        // UPDATE Submission
         document.getElementById('document-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -254,6 +252,9 @@
             msg.classList.remove('hidden');
 
             const formattedContent = tinymce.get('body_content').getContent();
+            
+            // NOTE: If you store metadata outside of these fields in `content_data`, 
+            // you should fetch the existing JSON first and merge it here instead of overwriting.
             let contentData = { body: formattedContent };
             
             const addNormalField = (fieldId, jsonKey) => {
@@ -278,18 +279,22 @@
             let docTitle = document.getElementById('meta_subject').value.trim();
             const typeSelected = document.getElementById('doc_type');
             
+            // --- FIX APPLIED HERE ---
+            // 1. Handle empty state
             if(!docTitle) {
                 docTitle = typeSelected.options[typeSelected.selectedIndex].text + " - Draft";
-            } else {
-                contentData['subject'] = docTitle.toUpperCase();
-            }
+            } 
+
+            // 2. Normalize case for BOTH the database column and the JSON payload
+            docTitle = docTitle.toUpperCase();
+            contentData['subject'] = docTitle;
+            // -------------------------
 
             // Set the update payload
             const updatePayload = {
                 title: docTitle,
                 content_data: contentData,
-                // Do not change creator_id. Document type is also locked in UI.
-                updated_at: new Date().toISOString() // Assuming you have an updated_at column
+                updated_at: new Date().toISOString()
             };
 
             try {
