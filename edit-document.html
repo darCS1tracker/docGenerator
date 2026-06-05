@@ -1,3 +1,10 @@
+Here is the complete, updated code with all the necessary fixes integrated.
+
+I've added `currentContentData` to preserve your existing JSON data, and updated the submission logic so that both the database `title` column and the JSON `subject` key correctly save the uppercase text, even for empty drafts.
+
+You can copy and paste this directly into your file:
+
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -113,6 +120,8 @@
     <script>
         let currentUser = null;
         let currentDocId = null;
+        // FIX 1: Add a variable to store existing JSON data
+        let currentContentData = {}; 
 
         document.addEventListener('DOMContentLoaded', async () => {
             // 1. Get Document ID from URL
@@ -144,7 +153,10 @@
 
                 if (error || !doc) throw error || new Error("Document not found");
 
-                // Security Check: If it's already approved, block editing unless they are an HEA (Optional feature to add)
+                // FIX 2: Save the existing JSON data so we don't overwrite it later
+                currentContentData = doc.content_data || {}; 
+
+                // Security Check: If it's already approved, block editing unless they are an HEA
                 if (doc.status === 'APPROVED') {
                     alert("This document is already APPROVED and cannot be edited directly.");
                     window.location.href = 'index.html';
@@ -165,7 +177,6 @@
                 // Helper to safely set values and remove <br> tags for editing
                 const setVal = (id, val) => {
                     if (val) {
-                        // If it's a textarea, convert <br> back to newlines (\n) for easy editing
                         let cleanVal = val.replace(/<br\s*[\/]?>/gi, "\n");
                         document.getElementById(id).value = cleanVal;
                     }
@@ -253,9 +264,8 @@
 
             const formattedContent = tinymce.get('body_content').getContent();
             
-            // NOTE: If you store metadata outside of these fields in `content_data`, 
-            // you should fetch the existing JSON first and merge it here instead of overwriting.
-            let contentData = { body: formattedContent };
+            // FIX 3: Spread existing data into new object so we don't lose hidden/unchanged fields
+            let contentData = { ...currentContentData, body: formattedContent }; 
             
             const addNormalField = (fieldId, jsonKey) => {
                 const el = document.getElementById(fieldId);
@@ -279,20 +289,18 @@
             let docTitle = document.getElementById('meta_subject').value.trim();
             const typeSelected = document.getElementById('doc_type');
             
-            // --- FIX APPLIED HERE ---
-            // 1. Handle empty state
+            // FIX 4: Handle draft fallback title logic BEFORE saving to JSON
             if(!docTitle) {
                 docTitle = typeSelected.options[typeSelected.selectedIndex].text + " - Draft";
-            } 
-
-            // 2. Normalize case for BOTH the database column and the JSON payload
+            }
+            
+            // FIX 5: Force the string to be uppercase, then assign it to the JSON payload
             docTitle = docTitle.toUpperCase();
             contentData['subject'] = docTitle;
-            // -------------------------
 
             // Set the update payload
             const updatePayload = {
-                title: docTitle,
+                title: docTitle, // This now receives the forced uppercase string
                 content_data: contentData,
                 updated_at: new Date().toISOString()
             };
@@ -322,3 +330,5 @@
     </script>
 </body>
 </html>
+
+```
