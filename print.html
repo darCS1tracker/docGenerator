@@ -129,7 +129,7 @@
 
             <div class="mt-auto flex flex-col items-start avoid-break pb-4" id="doc-footer" style="display: none;">
                 
-                <div class="relative pt-8 mb-8">
+                <div class="relative pt-8 mb-4">
                     <img src="esign.png" alt="" class="absolute top-0 left-4 h-16 opacity-90 z-10" onerror="this.style.display='none'">
                     <p class="font-bold uppercase mb-0 relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">RICARDO C. GARCIA</p>
                     <p class="relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">Provincial Agrarian Reform Program Officer II</p>
@@ -137,12 +137,12 @@
 
                 <div class="flex items-center" style="font-family: Arial, Helvetica, sans-serif;">
                     
-                    <div id="qrcode" class="mr-4" style="flex-shrink: 0;"></div>
+                    <div id="qrcode" class="mr-2" style="flex-shrink: 0;"></div>
                     
-                    <div class="text-left" style="line-height: 1.4;">
-                        <p class="font-bold m-0" style="font-size: 10pt; color: #003876;">Department of Agrarian Reform</p>
-                        <p class="m-0" style="font-size: 9.5pt; color: #2e74b5; margin-top: 2px !important;">Provincial Office of Camarines Sur 1</p>
-                        <p class="italic m-0" style="font-size: 9.5pt; color: #2e74b5; margin-top: 6px !important;">Office of the Provincial Director</p>
+                    <div class="text-left" style="line-height: 1;">
+                        <p class="font-bold m-0" style="font-size: 8pt; color: black; margin-bottom: 2px !important;">Department of Agrarian Reform</p>
+                        <p class="m-0" style="font-size: 8pt; color: black; margin-bottom: 2px !important;">Provincial Office of Camarines Sur 1</p>
+                        <p class="italic m-0" style="font-size: 8pt; color: black;">Office of the Provincial Director</p>
                     </div>
 
                 </div>
@@ -307,11 +307,10 @@
             
             const verifyUrl = `${window.location.origin}${window.location.pathname.replace('print.html', '')}verify.html?doc_id=${docId}`;
             
-            // Render perfectly compact formal QR Code (64x64 dimensions)
             new QRCode(document.getElementById("qrcode"), {
                 text: verifyUrl, 
-                width: 64, 
-                height: 64, 
+                width: 52, 
+                height: 52, 
                 colorDark : "#000000", 
                 colorLight : "#ffffff", 
                 correctLevel : QRCode.CorrectLevel.M
