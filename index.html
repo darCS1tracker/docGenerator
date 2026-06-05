@@ -55,12 +55,12 @@
                 </div>
                 <hr class="mb-4">
                 <div id="modal-content" class="prose max-w-none text-gray-800">
-                    </div>
+                </div>
             </div>
 
             <div class="px-6 py-4 border-t bg-slate-50 flex justify-end space-x-3 rounded-b-lg" id="modal-footer">
                 <button onclick="closeModal()" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded font-bold transition">Close</button>
-                </div>
+            </div>
         </div>
     </div>
 
@@ -94,7 +94,7 @@
             const { data: documents, error } = await window.supabaseClient
                 .from('documents')
                 .select('*')
-                .order('created_at', { ascending: false }); // Optional: Requires created_at column
+                .order('created_at', { ascending: false }); 
 
             if (error) {
                 tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
@@ -106,14 +106,31 @@
                 return;
             }
 
-            // Save documents to global array for the Review Modal
+            // Save documents to global array
             loadedDocuments = documents;
 
-            // 4. Render Documents with Conditional Buttons
-            tbody.innerHTML = documents.map(doc => `
+            // Helper function to shorten document types
+            const getShortDocType = (type) => {
+                const types = {
+                    'CERT_JUST': 'CERT / JUST',
+                    'MEMO_INTERNAL': 'MEMO (INT)',
+                    'MEMO_EXTERNAL': 'MEMO (EXT)',
+                    'PSO': 'PSO',
+                    'NOTICE_OF_MEETING': 'NOTICE',
+                    'ADVISORY': 'ADVISORY',
+                    'LETTER': 'LETTER'
+                };
+                return types[type] || type || '-';
+            };
+
+            // 4. Render Documents
+            tbody.innerHTML = documents.map(doc => {
+                const docTitle = doc.title || (doc.content_data && doc.content_data.subject) || 'Untitled';
+                
+                return `
                 <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 font-medium text-gray-900">${doc.title || 'Untitled'}</td>
-                    <td class="px-6 py-4 text-gray-600">${doc.doc_type || '-'}</td>
+                    <td class="px-6 py-4 font-medium text-gray-900">${docTitle}</td>
+                    <td class="px-6 py-4 text-gray-600 font-semibold">${getShortDocType(doc.doc_type)}</td>
                     <td class="px-6 py-4">
                         <span class="px-2.5 py-0.5 rounded border text-xs font-semibold 
                             ${doc.status === 'APPROVED' ? 'bg-green-100 text-green-800 border-green-300' : 'bg-yellow-100 text-yellow-800 border-yellow-300'}">
@@ -126,18 +143,23 @@
                             <button onclick="viewDoc('${doc.doc_id}')" class="bg-gray-100 text-gray-700 hover:bg-gray-200 px-3 py-1 rounded font-bold text-xs transition">
                                 View
                             </button>
+                            <button onclick="editDoc('${doc.doc_id}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1 rounded font-bold text-xs border border-blue-200 transition">
+                                Edit
+                            </button>
+                            <button onclick="duplicateDoc('${doc.doc_id}')" class="bg-orange-50 text-orange-700 hover:bg-orange-100 px-3 py-1 rounded font-bold text-xs border border-orange-200 transition">
+                                Duplicate
+                            </button>
 
                             ${isCurrentUserHEA && doc.status !== 'APPROVED' ? `
-                                <button onclick="editDoc('${doc.doc_id}')" class="bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1 rounded font-bold text-xs border border-blue-200 transition">
-                                    Edit
-                                </button>
                                 <button onclick="approveDoc('${doc.doc_id}')" class="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded font-bold text-xs transition">
                                     Approve
                                 </button>
                                 <button onclick="approveAndPrint('${doc.doc_id}')" class="bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1 rounded font-bold text-xs transition">
                                     Approve & Print
                                 </button>
-                            ` : isCurrentUserHEA && doc.status === 'APPROVED' ? `
+                            ` : ''}
+                            
+                            ${doc.status === 'APPROVED' ? `
                                 <button onclick="window.location.href='print.html?doc_id=${doc.doc_id}'" class="text-blue-600 hover:underline text-xs font-bold px-2 py-1">
                                     Print Document
                                 </button>
@@ -145,7 +167,7 @@
                         </div>
                     </td>
                 </tr>
-            `).join('');
+            `}).join('');
         });
 
         // --- ACTION FUNCTIONS ---
@@ -155,18 +177,15 @@
             const doc = loadedDocuments.find(d => d.doc_id === docId);
             if (!doc) return;
 
-            // Populate Modal Data
-            document.getElementById('modal-title').innerText = doc.title || 'Untitled Document';
+            document.getElementById('modal-title').innerText = doc.title || (doc.content_data && doc.content_data.subject) || 'Untitled Document';
             document.getElementById('modal-type').innerText = (doc.doc_type || 'Unknown').replace('_', ' ');
             
-            // Extract body content from JSON
             let htmlContent = "<p class='text-gray-500 italic'>No content available.</p>";
             if (doc.content_data && doc.content_data.body) {
                 htmlContent = doc.content_data.body;
             }
             document.getElementById('modal-content').innerHTML = htmlContent;
 
-            // Setup Footer Buttons in Modal (Allow HEA to approve directly from reading view)
             const footer = document.getElementById('modal-footer');
             if (isCurrentUserHEA && doc.status !== 'APPROVED') {
                 footer.innerHTML = `
@@ -178,7 +197,6 @@
                 footer.innerHTML = `<button onclick="closeModal()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded font-bold transition">Close</button>`;
             }
 
-            // Show Modal
             document.getElementById('viewModal').classList.remove('hidden');
         };
 
@@ -189,6 +207,40 @@
         // Redirect to Edit Page
         window.editDoc = (docId) => {
             window.location.href = `edit-document.html?doc_id=${docId}`;
+        };
+
+        // Duplicate Document
+        window.duplicateDoc = async (docId) => {
+            if (!confirm("Are you sure you want to duplicate this document? A new DRAFT copy will be created.")) return;
+
+            const docToCopy = loadedDocuments.find(d => d.doc_id === docId);
+            if (!docToCopy) return;
+
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            
+            // Deep copy the JSON data so modifications to the new one don't affect the old one
+            let newContentData = null;
+            if (docToCopy.content_data) {
+                newContentData = JSON.parse(JSON.stringify(docToCopy.content_data));
+            }
+
+            const insertPayload = {
+                title: docToCopy.title ? docToCopy.title + ' (COPY)' : 'COPY',
+                doc_type: docToCopy.doc_type,
+                content_data: newContentData,
+                status: 'DRAFT',
+                creator_id: session.user.id
+            };
+
+            const { error } = await window.supabaseClient
+                .from('documents')
+                .insert([insertPayload]);
+
+            if (error) {
+                alert("Error duplicating document: " + error.message);
+            } else {
+                location.reload(); 
+            }
         };
 
         // Approve Status
