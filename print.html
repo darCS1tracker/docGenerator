@@ -18,6 +18,7 @@
             font-size: 11pt; 
             background-color: #f3f4f6; 
             color: black;
+            margin: 0;
         }
         
         /* The on-screen paper preview */
@@ -28,15 +29,31 @@
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
             display: flex;
             flex-direction: column;
+            position: relative;
             /* Top 1.25in, Right 1in, Bottom 1in, Left 1in */
             padding: 1.25in 1in 1in 1in;
+            z-index: 1;
+        }
+
+        /* Enforce absolute background image so it ALWAYS prints */
+        #print-bg-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            object-fit: fill; /* Stretches exactly to paper bounds */
+            display: none;
+        }
+
+        /* Content layer keeps everything above the background */
+        .content-layer {
             position: relative;
-            /* Force background printing */
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-            background-size: 100% 100% !important;
-            background-position: center !important;
-            background-repeat: no-repeat !important;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
         }
 
         /* Intelligent Paging Rules */
@@ -100,29 +117,33 @@
     </div>
 
     <div class="page" id="document-paper">
-        <div id="doc-header" class="avoid-break mb-4">
+        <img id="print-bg-image" src="" alt="Background">
+
+        <div class="content-layer">
+            <div id="doc-header" class="avoid-break mb-4">
+                </div>
+
+            <div id="doc-body" class="flex-grow prose max-w-none mt-4">
+                <p class="text-gray-500 text-center mt-10">Loading document...</p>
             </div>
 
-        <div id="doc-body" class="flex-grow prose max-w-none mt-4">
-            <p class="text-gray-500 text-center mt-10">Loading document...</p>
-        </div>
-
-        <div class="mt-16 flex justify-between items-end avoid-break" id="doc-footer" style="display: none;">
-            
-            <div class="relative pt-8 pb-4">
-                <img src="esign.png" alt="" class="absolute top-0 left-4 h-16 opacity-90 z-10" onerror="this.style.display='none'">
-                <p class="font-bold uppercase mb-0 relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">RICARDO C. GARCIA</p>
-                <p class="relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">Provincial Agrarian Reform Program Officer II</p>
-            </div>
-
-            <div class="text-center flex flex-col items-center pb-2">
-                <p class="font-bold mb-0" style="font-size: 10.5pt; font-family: 'Arial Narrow', Arial, sans-serif; letter-spacing: -0.2px;">Department of Agrarian Reform</p>
-                <p class="mb-1 uppercase" style="font-size: 8pt;">DAR PROVINCIAL OFFICE - CAMARINES SUR 1</p>
+            <div class="mt-auto flex justify-between items-end avoid-break pb-4" id="doc-footer" style="display: none;">
                 
-                <div id="qrcode" class="p-1 bg-white mb-1"></div>
-                
-                <p class="text-[8pt] font-bold mt-1 tracking-wider uppercase m-0" id="qr-serial"></p>
-                <p class="text-[7pt] uppercase m-0 font-bold tracking-widest text-gray-700">OSEC-SCME-MC</p>
+                <div class="relative pt-8 mb-2">
+                    <img src="esign.png" alt="" class="absolute top-0 left-4 h-16 opacity-90 z-10" onerror="this.style.display='none'">
+                    <p class="font-bold uppercase mb-0 relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">RICARDO C. GARCIA</p>
+                    <p class="relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">Provincial Agrarian Reform Program Officer II</p>
+                </div>
+
+                <div class="flex flex-col items-center text-center" style="font-family: Arial, Helvetica, sans-serif;">
+                    <p class="font-bold m-0" style="font-size: 8.5pt; color: #003366; margin-bottom: 4px !important;">Department of Agrarian Reform</p>
+                    <p class="m-0" style="font-size: 7.5pt; margin-bottom: 12px !important;">DAR PROVINCIAL OFFICE - CAMARINES SUR 1</p>
+                    
+                    <div id="qrcode" style="display: flex; justify-content: center; margin-bottom: 6px;"></div>
+                    
+                    <p class="font-bold uppercase m-0" style="font-size: 8.5pt; letter-spacing: 0.5px; color: black;" id="qr-serial"></p>
+                    <p class="uppercase font-bold m-0" style="font-size: 8.5pt; margin-top: 10px !important; letter-spacing: 1px; color: #475569;">OSEC-SCME-MC</p>
+                </div>
             </div>
         </div>
     </div>
@@ -132,27 +153,30 @@
             const size = document.getElementById('paper-size').value;
             const paper = document.getElementById('document-paper');
             const styleTag = document.getElementById('dynamic-page-style');
+            const bgImgElement = document.getElementById('print-bg-image');
             
             // Generate Supabase storage URL dynamically based on size
             const bgFileName = size === 'long' ? 'bg_memo.jpg' : 'bg_memo_a4.jpg';
             
-            // NOTE: Change 'images' to your actual bucket name or path if it's nested (e.g., 'public/images')
+            // Fetch Background Image from Storage
             const { data: bgData } = window.supabaseClient.storage.from('images').getPublicUrl(bgFileName);
             
             if (bgData && bgData.publicUrl) {
-                paper.style.backgroundImage = `url('${bgData.publicUrl}')`;
+                bgImgElement.src = bgData.publicUrl;
+                bgImgElement.style.display = 'block';
+            } else {
+                bgImgElement.style.display = 'none';
             }
 
             let css = "";
             if (size === 'long') {
                 paper.style.width = '8.5in';
                 paper.style.minHeight = '13in';
-                // margin: 0 strictly removes browser-injected header/footer text!
+                // margin: 0 strictly removes browser-injected header/footer metadata!
                 css = `@page { size: 8.5in 13in; margin: 0; }`; 
             } else if (size === 'a4') {
                 paper.style.width = '8.27in';
                 paper.style.minHeight = '11.69in';
-                // margin: 0 strictly removes browser-injected header/footer text!
                 css = `@page { size: A4; margin: 0; }`;
             }
             styleTag.innerHTML = css;
@@ -186,7 +210,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // Wait for DB initialization if applicable, update paper & bg image first
             updatePaperSize();
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -280,10 +303,12 @@
             document.getElementById('doc-footer').style.display = 'flex';
             
             const verifyUrl = `${window.location.origin}${window.location.pathname.replace('print.html', '')}verify.html?doc_id=${docId}`;
+            
+            // Render perfectly compact formal QR Code (60x60 dimensions)
             new QRCode(document.getElementById("qrcode"), {
                 text: verifyUrl, 
-                width: 72, 
-                height: 72, 
+                width: 60, 
+                height: 60, 
                 colorDark : "#000000", 
                 colorLight : "#ffffff", 
                 correctLevel : QRCode.CorrectLevel.M
