@@ -59,12 +59,12 @@
         /* Intelligent Paging Rules */
         .avoid-break { page-break-inside: avoid; break-inside: avoid; }
         
-        /* Exact layout grids */
+        /* Exact layout grids - Spacing heavily compressed */
         .doc-header-grid { 
             display: grid; 
             grid-template-columns: 80px 20px 1fr; 
-            row-gap: 1rem; 
-            margin-bottom: 1.5rem; 
+            row-gap: 0.5rem; 
+            margin-bottom: 0.5rem; 
         }
         
         /* Document Body Paragraphs - Enforcing Double Space */
@@ -77,10 +77,12 @@
             line-height: 1.5;
         }
 
+        /* Divider line - Huge margins completely removed */
         hr.divider {
             border: 0;
             border-top: 2px solid black;
-            margin-bottom: 2rem;
+            margin-top: 0;
+            margin-bottom: 0; 
         }
 
         /* Remove default margins from QR code generation */
@@ -127,10 +129,10 @@
         <img id="print-bg-image" src="" alt="Background">
 
         <div class="content-layer">
-            <div id="doc-header" class="avoid-break mb-4">
+            <div id="doc-header" class="avoid-break">
                 </div>
 
-            <div id="doc-body" class="flex-grow prose max-w-none mt-4">
+            <div id="doc-body" class="flex-grow prose max-w-none mt-2">
                 <p class="text-gray-500 text-center mt-10">Loading document...</p>
             </div>
 
@@ -146,10 +148,10 @@
                     
                     <div id="qrcode" style="flex-shrink: 0; margin-right: 5px;"></div>
                     
-                    <div class="text-left" style="line-height: 1.05;">
-                        <p style="font-size: 8pt; font-weight: bold; margin: 0 !important; padding: 0 !important; color: black;">Department of Agrarian Reform</p>
-                        <p style="font-size: 8pt; margin: 0 !important; padding: 0 !important; color: black;">Provincial Office of Camarines Sur 1</p>
-                        <p style="font-size: 8pt; font-style: italic; margin: 0 !important; padding: 0 !important; color: black;">Office of the Provincial Director</p>
+                    <div class="text-left" style="line-height: 1;">
+                        <p style="font-size: 6.5pt; font-family: Arial, Helvetica, sans-serif; font-weight: bold; margin: 0 !important; padding: 0 !important; color: black;">Department of Agrarian Reform</p>
+                        <p style="font-size: 6.5pt; font-family: Arial, Helvetica, sans-serif; margin: 0 !important; padding: 0 !important; color: black;">Provincial Office of Camarines Sur 1</p>
+                        <p style="font-size: 6.5pt; font-family: Arial, Helvetica, sans-serif; font-style: italic; margin: 0 !important; padding: 0 !important; color: black;">Office of the Provincial Director</p>
                     </div>
 
                 </div>
@@ -316,8 +318,8 @@
             
             new QRCode(document.getElementById("qrcode"), {
                 text: verifyUrl, 
-                width: 52, 
-                height: 52, 
+                width: 48, 
+                height: 48, 
                 colorDark : "#000000", 
                 colorLight : "#ffffff", 
                 correctLevel : QRCode.CorrectLevel.M
