@@ -23,7 +23,7 @@
         
         /* The on-screen paper preview */
         .page { 
-            background-color: white; /* Default white, JS will make transparent if BG loads */
+            background-color: white; 
             margin: 4rem auto; 
             box-sizing: border-box; 
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
@@ -43,7 +43,7 @@
             width: 100%;
             height: 100%;
             z-index: 0;
-            object-fit: fill; /* Stretches exactly to paper bounds */
+            object-fit: fill; 
             display: none;
         }
 
@@ -59,12 +59,12 @@
         /* Intelligent Paging Rules */
         .avoid-break { page-break-inside: avoid; break-inside: avoid; }
         
-        /* Exact layout grids - Spacing heavily compressed */
+        /* Exact layout grids */
         .doc-header-grid { 
             display: grid; 
             grid-template-columns: 80px 20px 1fr; 
-            row-gap: 0.5rem; 
-            margin-bottom: 0.5rem; 
+            row-gap: 1rem; 
+            margin-bottom: 1.5rem; 
         }
         
         /* Document Body Paragraphs - Enforcing Double Space */
@@ -77,19 +77,11 @@
             line-height: 1.5;
         }
 
-        /* Divider line - Huge margins completely removed */
+        /* Divider Line: Spacing fixed here */
         hr.divider {
             border: 0;
             border-top: 2px solid black;
-            margin-top: 0;
             margin-bottom: 0; 
-        }
-
-        /* Remove default margins from QR code generation */
-        #qrcode img, #qrcode canvas {
-            display: block;
-            margin: 0;
-            padding: 0;
         }
 
         /* Dynamic Print Rules - Hides browser metadata natively */
@@ -129,29 +121,29 @@
         <img id="print-bg-image" src="" alt="Background">
 
         <div class="content-layer">
-            <div id="doc-header" class="avoid-break">
+            <div id="doc-header" class="avoid-break mb-4">
                 </div>
 
-            <div id="doc-body" class="flex-grow prose max-w-none mt-2">
+            <div id="doc-body" class="flex-grow prose max-w-none mt-4">
                 <p class="text-gray-500 text-center mt-10">Loading document...</p>
             </div>
 
             <div class="mt-auto flex flex-col items-start avoid-break pb-4" id="doc-footer" style="display: none;">
                 
-                <div class="relative pt-8 mb-4">
+                <div class="relative pt-8 mb-8">
                     <img src="esign.png" alt="" class="absolute top-0 left-4 h-16 opacity-90 z-10" onerror="this.style.display='none'">
                     <p class="font-bold uppercase mb-0 relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">RICARDO C. GARCIA</p>
                     <p class="relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">Provincial Agrarian Reform Program Officer II</p>
                 </div>
 
-                <div class="flex items-center">
+                <div class="flex items-center" style="font-family: Arial, Helvetica, sans-serif;">
                     
-                    <div id="qrcode" style="flex-shrink: 0; margin-right: 5px;"></div>
+                    <div id="qrcode" class="mr-3" style="flex-shrink: 0;"></div>
                     
-                    <div class="text-left" style="line-height: 1;">
-                        <p style="font-size: 6.5pt; font-family: Arial, Helvetica, sans-serif; font-weight: bold; margin: 0 !important; padding: 0 !important; color: black;">Department of Agrarian Reform</p>
-                        <p style="font-size: 6.5pt; font-family: Arial, Helvetica, sans-serif; margin: 0 !important; padding: 0 !important; color: black;">Provincial Office of Camarines Sur 1</p>
-                        <p style="font-size: 6.5pt; font-family: Arial, Helvetica, sans-serif; font-style: italic; margin: 0 !important; padding: 0 !important; color: black;">Office of the Provincial Director</p>
+                    <div class="text-left" style="line-height: 1.3;">
+                        <p class="font-bold m-0" style="font-size: 10pt; color: #003366;">Department of Agrarian Reform</p>
+                        <p class="m-0" style="font-size: 9pt; color: #334155;">Provincial Office of Camarines Sur 1</p>
+                        <p class="italic m-0" style="font-size: 9pt; color: #475569;">Office of the Provincial Director</p>
                     </div>
 
                 </div>
@@ -166,16 +158,13 @@
             const styleTag = document.getElementById('dynamic-page-style');
             const bgImgElement = document.getElementById('print-bg-image');
             
-            // Generate Supabase storage URL dynamically based on size
             const bgFileName = size === 'long' ? 'bg_memo.jpg' : 'bg_memo_a4.jpg';
             
-            // Fetch Background Image from Storage
             const { data: bgData } = window.supabaseClient.storage.from('images').getPublicUrl(bgFileName);
             
             if (bgData && bgData.publicUrl) {
                 bgImgElement.src = bgData.publicUrl;
                 bgImgElement.style.display = 'block';
-                // Remove the white background so the image actually shows through
                 paper.style.backgroundColor = 'transparent';
             } else {
                 bgImgElement.style.display = 'none';
@@ -186,7 +175,6 @@
             if (size === 'long') {
                 paper.style.width = '8.5in';
                 paper.style.minHeight = '13in';
-                // margin: 0 strictly removes browser-injected header/footer metadata!
                 css = `@page { size: 8.5in 13in; margin: 0; }`; 
             } else if (size === 'a4') {
                 paper.style.width = '8.27in';
@@ -196,7 +184,6 @@
             styleTag.innerHTML = css;
         }
 
-        // AUTO-FORMATTER
         function formatHeaderValue(val, isSubjectOrDate = false) {
             if (!val) return "";
             let cleanString = val.replace(/<br\s*\/?>/gi, '\n').replace(/<\/?[^>]+(>|$)/g, "");
@@ -318,8 +305,8 @@
             
             new QRCode(document.getElementById("qrcode"), {
                 text: verifyUrl, 
-                width: 48, 
-                height: 48, 
+                width: 64, 
+                height: 64, 
                 colorDark : "#000000", 
                 colorLight : "#ffffff", 
                 correctLevel : QRCode.CorrectLevel.M
