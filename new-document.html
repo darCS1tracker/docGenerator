@@ -3,239 +3,322 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Print Document - DAR DMS</title>
+    <title>Edit Document - DAR DMS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/6.8.2/tinymce.min.js"></script>
+    
     <script src="db.js"></script>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
-    
-    <style>
-        /* Base styling */
-        body { 
-            font-family: 'Roboto', sans-serif; 
-            font-size: 11pt; /* Enforce size 11 */
-            background-color: #f3f4f6; 
-            color: black;
-        }
-        
-        /* The on-screen paper preview */
-        .page { 
-            background: white; 
-            margin: 4rem auto; 
-            box-sizing: border-box; 
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
-            display: flex;
-            flex-direction: column;
-            /* Margins applied as padding: Top 1.25in, Right 1in, Bottom 1in, Left 1in */
-            padding: 1.25in 1in 1in 1in;
-        }
-
-        /* Intelligent Paging Rules */
-        .avoid-break { page-break-inside: avoid; break-inside: avoid; }
-        .doc-header-grid { display: grid; grid-template-columns: 100px 1fr; gap: 0.5rem; margin-bottom: 1rem; }
-        .doc-header-label { font-weight: bold; text-transform: uppercase; }
-        
-        /* Ensure all paragraphs follow size 11 and justify alignment */
-        p, .prose p, .prose span { 
-            orphans: 3; 
-            widows: 3; 
-            margin-bottom: 1rem; 
-            text-align: justify; 
-            font-size: 11pt !important;
-            line-height: 1.5;
-        }
-
-        /* Dynamic Print Rules */
-        @media print {
-            body { background-color: white; }
-            .page { 
-                margin: 0; 
-                /* Keeping the padding ensures our 1.25" and 1" margins are respected */
-                box-shadow: none; 
-                width: 100% !important; 
-                min-height: auto !important; 
-            }
-            #print-ui-controls { display: none !important; }
-        }
-    </style>
-    <style id="dynamic-page-style"></style>
+    <script src="sidebar.js"></script>
 </head>
-<body>
+<body class="bg-gray-100 font-sans flex h-screen hidden" id="page-body">
 
-    <div id="print-ui-controls" class="fixed top-0 left-0 right-0 bg-slate-800 text-white p-3 flex justify-between items-center z-50 shadow-md">
-        <div class="flex items-center space-x-4">
-            <span class="font-bold text-sm">Paper Size:</span>
-            <select id="paper-size" onchange="updatePaperSize()" class="bg-slate-700 text-white border border-slate-600 rounded px-2 py-1 outline-none focus:ring-2 focus:ring-blue-500 text-sm">
-                <option value="long">Long / Folio (8.5" x 13")</option>
-                <option value="a4">A4 (8.27" x 11.69")</option>
-            </select>
-        </div>
-        <div class="flex space-x-3">
-            <button onclick="window.history.back()" class="bg-slate-600 px-4 py-1.5 rounded hover:bg-slate-500 transition font-bold text-sm">Back</button>
-            <button onclick="window.print()" class="bg-blue-600 px-4 py-1.5 rounded hover:bg-blue-500 transition font-bold text-sm flex items-center">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                Print Document
-            </button>
-        </div>
-    </div>
+    <aside id="sidebar-container" class="w-64 bg-slate-900 text-white flex flex-col hidden md:flex"></aside>
 
-    <div class="page" id="document-paper">
-        <div id="doc-header" class="avoid-break mb-4">
+    <main class="flex-1 overflow-y-auto p-8 relative">
+        
+        <div id="loading-overlay" class="absolute inset-0 bg-white/80 z-50 flex flex-col items-center justify-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+            <p class="font-bold text-gray-700">Loading Document Data...</p>
+        </div>
+
+        <div class="max-w-5xl mx-auto bg-white p-8 shadow-md rounded-lg relative">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Edit Document</h2>
+                <span id="doc-status-badge" class="px-3 py-1 text-xs font-bold rounded-full bg-gray-200 text-gray-700"></span>
             </div>
+            
+            <form id="document-form" class="space-y-6">
+                <div class="w-full md:w-1/2">
+                    <label class="block text-sm font-medium text-gray-700">Document Type</label>
+                    <select id="doc_type" required class="mt-1 block w-full border-gray-300 rounded-md shadow-sm p-2 border bg-gray-100 cursor-not-allowed" disabled>
+                        <option value="" disabled>Select a document type...</option>
+                        <option value="CERT_JUST">Certification / Justification</option>
+                        <option value="MEMO_INTERNAL">Memorandum (Internal - TO)</option>
+                        <option value="MEMO_EXTERNAL">Memorandum (External - FOR)</option>
+                        <option value="PSO">Provincial Special Order (PSO)</option>
+                        <option value="NOTICE_OF_MEETING">Notice of Meeting</option>
+                        <option value="ADVISORY">Advisory</option>
+                        <option value="LETTER">Letter</option>
+                    </select>
+                    <p class="text-xs text-red-500 mt-1">Document type cannot be changed after creation.</p>
+                </div>
 
-        <div id="doc-body" class="flex-grow prose max-w-none">
-            <p class="text-gray-500 text-center mt-10">Loading document...</p>
+                <div id="dynamic-fields" class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-gray-50 p-4 rounded border hidden">
+                    
+                    <div id="field-to" class="dyn-field hidden col-span-1 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">TO (Addressee/s)</label>
+                        <p class="text-xs text-gray-500 mb-1">HTML formatting is applied. Be careful when editing.</p>
+                        <textarea id="meta_to" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+                    </div>
+                    
+                    <div id="field-for" class="dyn-field hidden col-span-1 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">FOR</label>
+                        <p class="text-xs text-gray-500 mb-1">HTML formatting is applied. Be careful when editing.</p>
+                        <textarea id="meta_for" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+                    </div>
+                    
+                    <div id="field-thru" class="dyn-field hidden">
+                        <label class="block text-sm font-medium text-gray-700">THRU</label>
+                        <textarea id="meta_thru" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+                    </div>
+                    
+                    <div id="field-attention" class="dyn-field hidden">
+                        <label class="block text-sm font-medium text-gray-700">ATTENTION</label>
+                        <textarea id="meta_attention" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2"></textarea>
+                    </div>
+
+                    <div id="field-from" class="dyn-field hidden">
+                        <label class="block text-sm font-medium text-gray-700">FROM</label>
+                        <input type="text" id="meta_from" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 font-bold uppercase" />
+                    </div>
+                    
+                    <div id="field-date" class="dyn-field hidden">
+                        <label class="block text-sm font-medium text-gray-700">DATE</label>
+                        <input type="date" id="meta_date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
+                    </div>
+                    
+                    <div id="field-subject" class="dyn-field hidden col-span-1 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">SUBJECT / TITLE</label>
+                        <textarea id="meta_subject" rows="2" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 uppercase"></textarea>
+                    </div>
+                    
+                    <div id="field-subtitle" class="dyn-field hidden col-span-1 md:col-span-2">
+                        <label class="block text-sm font-medium text-gray-700">SUBTITLE</label>
+                        <input type="text" id="meta_subtitle" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" />
+                    </div>
+                </div>
+
+                <div id="editor-container" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Document Body</label>
+                    <textarea id="body_content"></textarea>
+                </div>
+
+                <div class="flex items-center justify-between pt-4 border-t">
+                    <button type="button" onclick="window.history.back()" class="text-gray-600 hover:text-gray-900 font-bold transition">
+                        Cancel / Back
+                    </button>
+                    
+                    <div class="flex items-center space-x-4">
+                        <span id="form-msg" class="text-sm font-bold hidden"></span>
+                        <button type="submit" id="submit-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded transition hidden">
+                            Update Document
+                        </button>
+                    </div>
+                </div>
+            </form>
         </div>
-
-        <div class="mt-16 flex justify-between items-end avoid-break" id="doc-footer" style="display: none;">
-            <div class="relative pt-8">
-                <img src="esign.png" alt="" class="absolute top-0 left-4 h-16 opacity-90 z-10" onerror="this.style.display='none'">
-                <p class="font-bold uppercase mb-0 relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">RICARDO C. GARCIA</p>
-                <p class="relative z-20" style="font-size: 11pt; margin-bottom: 0 !important;">PARPO II</p>
-            </div>
-
-            <div class="text-center flex flex-col items-center">
-                <div id="qrcode" class="border p-1 bg-white"></div>
-                <p class="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-wider" style="font-size: 9pt !important; margin-bottom: 0 !important;">Scan to Verify</p>
-            </div>
-        </div>
-    </div>
+    </main>
 
     <script>
-        // Set paper size dynamically (both for screen and physical printer)
-        function updatePaperSize() {
-            const size = document.getElementById('paper-size').value;
-            const paper = document.getElementById('document-paper');
-            const styleTag = document.getElementById('dynamic-page-style');
-            
-            let css = "";
-            if (size === 'long') {
-                paper.style.width = '8.5in';
-                paper.style.minHeight = '13in';
-                // Margin 0 forces the browser to drop headers/footers. Padding handles the actual layout.
-                css = `@page { size: 8.5in 13in; margin: 0; }`; 
-            } else if (size === 'a4') {
-                paper.style.width = '8.27in';
-                paper.style.minHeight = '11.69in';
-                css = `@page { size: A4; margin: 0; }`;
-            }
-            styleTag.innerHTML = css;
-        }
+        let currentUser = null;
+        let currentDocId = null;
 
         document.addEventListener('DOMContentLoaded', async () => {
-            updatePaperSize();
-
+            // 1. Get Document ID from URL
             const urlParams = new URLSearchParams(window.location.search);
-            const docId = urlParams.get('doc_id');
+            currentDocId = urlParams.get('doc_id');
 
-            if (!docId) {
-                document.getElementById('doc-body').innerHTML = "<p class='text-red-500 font-bold'>Error: No Document ID provided.</p>";
+            if (!currentDocId) {
+                alert("No Document ID specified!");
+                window.location.href = 'index.html';
                 return;
             }
 
-            // Fetch Document Data
-            const { data: doc, error } = await window.supabaseClient
-                .from('documents')
-                .select('*')
-                .eq('doc_id', docId)
-                .single();
-
-            if (error || !doc) {
-                document.getElementById('doc-body').innerHTML = `<p class='text-red-500 font-bold'>Error loading document: ${error?.message || 'Not found'}</p>`;
+            // 2. Check Auth
+            const { data: { session } } = await window.supabaseClient.auth.getSession();
+            if (!session) {
+                window.location.href = 'login.html';
                 return;
             }
+            currentUser = session.user;
+            document.getElementById('page-body').classList.remove('hidden');
 
-            const meta = doc.content_data || {};
-            let headerHtml = "";
-            
-            // This creates the perfect "Tab Space" after the colon (approx 24px wide)
-            const tabSpace = '<span class="inline-block w-6"></span>';
+            // 3. Fetch Document Data from Supabase
+            try {
+                const { data: doc, error } = await window.supabaseClient
+                    .from('documents')
+                    .select('*')
+                    .eq('doc_id', currentDocId)
+                    .single();
 
-            // Format Header based on Document Type
-            switch (doc.doc_type) {
-                case 'MEMO_INTERNAL':
-                case 'MEMO_EXTERNAL':
-                    headerHtml += `<h2 class="font-bold mb-6 uppercase" style="font-size: 14pt;">MEMORANDUM</h2>`;
-                    headerHtml += `<div class="doc-header-grid">`;
-                    if (meta.to) headerHtml += `<div class="doc-header-label">TO</div><div>:${tabSpace}${meta.to}</div>`;
-                    if (meta.for) headerHtml += `<div class="doc-header-label">FOR</div><div>:${tabSpace}${meta.for}</div>`;
-                    if (meta.from) headerHtml += `<div class="doc-header-label">FROM</div><div>:${tabSpace}<b>${meta.from}</b></div>`;
-                    if (meta.date) headerHtml += `<div class="doc-header-label">DATE</div><div>:${tabSpace}${formatDate(meta.date)}</div>`;
-                    if (meta.subject) headerHtml += `<div class="doc-header-label mt-4">SUBJECT</div><div class="mt-4 font-bold uppercase">:${tabSpace}${meta.subject}</div>`;
-                    headerHtml += `</div><hr class="border-t-2 border-black mt-2">`;
-                    break;
+                if (error || !doc) throw error || new Error("Document not found");
 
-                case 'ADVISORY':
-                    headerHtml += `<h2 class="font-bold mb-6 uppercase" style="font-size: 14pt;">ADVISORY</h2>`;
-                    headerHtml += `<div class="doc-header-grid">`;
-                    if (meta.for) headerHtml += `<div class="doc-header-label">FOR</div><div>:${tabSpace}${meta.for}</div>`;
-                    if (meta.from) headerHtml += `<div class="doc-header-label">FROM</div><div>:${tabSpace}<b>${meta.from}</b></div>`;
-                    if (meta.subject) headerHtml += `<div class="doc-header-label mt-2">SUBJECT</div><div class="mt-2 font-bold uppercase">:${tabSpace}${meta.subject}</div>`;
-                    headerHtml += `</div><hr class="border-t-2 border-black mt-2">`;
-                    break;
+                // Security Check: If it's already approved, block editing unless they are an HEA (Optional feature to add)
+                if (doc.status === 'APPROVED') {
+                    alert("This document is already APPROVED and cannot be edited directly.");
+                    window.location.href = 'index.html';
+                    return;
+                }
 
-                case 'NOTICE_OF_MEETING':
-                    headerHtml += `<h2 class="font-bold mb-6 text-center underline uppercase" style="font-size: 16pt;">NOTICE OF MEETING</h2>`;
-                    headerHtml += `<div class="doc-header-grid">`;
-                    if (meta.to) headerHtml += `<div class="doc-header-label">TO</div><div>:${tabSpace}${meta.to}</div>`;
-                    if (meta.from) headerHtml += `<div class="doc-header-label">FROM</div><div>:${tabSpace}<b>${meta.from}</b></div>`;
-                    if (meta.subject) headerHtml += `<div class="doc-header-label">SUBJECT</div><div>:${tabSpace}${meta.subject}</div>`;
-                    if (meta.date) headerHtml += `<div class="doc-header-label">DATE</div><div>:${tabSpace}${formatDate(meta.date)}</div>`;
-                    headerHtml += `</div><hr class="border-t-2 border-black mt-2">`;
-                    break;
+                document.getElementById('doc-status-badge').innerText = `Status: ${doc.status}`;
+                
+                // 4. Populate Form Fields
+                document.getElementById('doc_type').value = doc.doc_type;
+                
+                // Trigger the change event manually to show/hide the correct fields
+                triggerFieldVisibility(doc.doc_type);
 
-                case 'PSO':
-                    headerHtml += `<h2 class="font-bold uppercase" style="font-size: 12pt;">PROVINCIAL SPECIAL ORDER No. ________</h2>`;
-                    headerHtml += `<h2 class="font-bold mb-6 uppercase" style="font-size: 12pt;">SERIES OF ${new Date().getFullYear()}</h2>`;
-                    headerHtml += `<div class="flex mb-2"><span class="font-bold mr-4">SUBJECT:</span> <span class="font-bold uppercase">${meta.subject || doc.title}</span></div>`;
-                    headerHtml += `<hr class="border-t-2 border-black mt-2">`;
-                    break;
-
-                case 'CERT_JUST':
-                    headerHtml += `<h2 class="font-bold mb-2 text-center text-[#4a773c] uppercase" style="font-size: 18pt;">${doc.title || 'JUSTIFICATION'}</h2>`;
-                    if (meta.subtitle) headerHtml += `<p class="text-center mb-6">${meta.subtitle}</p>`;
-                    break;
-
-                case 'LETTER':
-                    if (meta.date) headerHtml += `<p class="mb-6">${formatDate(meta.date)}</p>`;
-                    if (meta.to) headerHtml += `<p class="mb-4 font-bold whitespace-pre-line">${meta.to}</p>`;
-                    if (meta.thru) {
-                        headerHtml += `<div class="flex mb-6"><span class="mr-8">THRU:</span> <span class="font-bold whitespace-pre-line">${meta.thru}</span></div>`;
+                // Populate Dynamic Fields
+                const meta = doc.content_data || {};
+                
+                // Helper to safely set values and remove <br> tags for editing
+                const setVal = (id, val) => {
+                    if (val) {
+                        // If it's a textarea, convert <br> back to newlines (\n) for easy editing
+                        let cleanVal = val.replace(/<br\s*[\/]?>/gi, "\n");
+                        document.getElementById(id).value = cleanVal;
                     }
-                    if (meta.attention) headerHtml += `<p class="mb-6">ATTENTION: <b>${meta.attention}</b></p>`;
-                    headerHtml += `<p class="mb-4">Sir/Madam:</p>`;
-                    break;
+                };
+
+                setVal('meta_to', meta.to);
+                setVal('meta_for', meta.for);
+                setVal('meta_thru', meta.thru);
+                setVal('meta_attention', meta.attention);
+                setVal('meta_from', meta.from);
+                setVal('meta_date', meta.date);
+                setVal('meta_subject', meta.subject || doc.title);
+                setVal('meta_subtitle', meta.subtitle);
+
+                // Initialize TinyMCE WITH the fetched body content
+                tinymce.init({
+                    selector: '#body_content',
+                    height: 500,
+                    menubar: false,
+                    plugins: ['advlist', 'lists', 'table'],
+                    toolbar: 'undo redo | bold italic | alignleft aligncenter alignright alignjustify | table | bullist numlist',
+                    promotion: false, branding: false,
+                    setup: function (editor) {
+                        editor.on('init', function () {
+                            if (meta.body) {
+                                editor.setContent(meta.body);
+                            }
+                            // Hide loading overlay once editor is ready
+                            document.getElementById('loading-overlay').classList.add('hidden');
+                        });
+                    }
+                });
+
+            } catch (err) {
+                console.error(err);
+                alert("Failed to load document data.");
+                window.location.href = 'index.html';
             }
-
-            // Inject Header and Body
-            document.getElementById('doc-header').innerHTML = headerHtml;
-            document.getElementById('doc-body').innerHTML = meta.body || '<p>No content provided.</p>';
-
-            // Show footer
-            document.getElementById('doc-footer').style.display = 'flex';
-            
-            // Generate QR Code for Verification
-            const verifyUrl = `${window.location.origin}${window.location.pathname.replace('print.html', '')}verify.html?doc_id=${docId}`;
-            
-            new QRCode(document.getElementById("qrcode"), {
-                text: verifyUrl,
-                width: 64,
-                height: 64,
-                colorDark : "#000000",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.L
-            });
-
-            // Auto-print after a brief delay so QR code finishes rendering
-            setTimeout(() => { window.print(); }, 800);
         });
 
-        function formatDate(dateString) {
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            return new Date(dateString).toLocaleDateString('en-US', options);
+        // Field Visibility Logic
+        function triggerFieldVisibility(type) {
+            document.getElementById('dynamic-fields').classList.remove('hidden');
+            document.getElementById('editor-container').classList.remove('hidden');
+            document.getElementById('submit-btn').classList.remove('hidden');
+            document.querySelectorAll('.dyn-field').forEach(el => el.classList.add('hidden'));
+
+            const showFields = (fields) => fields.forEach(f => document.getElementById(f).classList.remove('hidden'));
+
+            switch(type) {
+                case 'MEMO_INTERNAL': showFields(['field-to', 'field-from', 'field-subject', 'field-date']); break;
+                case 'MEMO_EXTERNAL': showFields(['field-for', 'field-from', 'field-subject', 'field-date']); break;
+                case 'NOTICE_OF_MEETING': showFields(['field-to', 'field-from', 'field-subject', 'field-date']); break;
+                case 'ADVISORY': showFields(['field-for', 'field-from', 'field-subject']); break;
+                case 'PSO': showFields(['field-subject']); break;
+                case 'CERT_JUST': showFields(['field-subject', 'field-subtitle']); break;
+                case 'LETTER': showFields(['field-to', 'field-thru', 'field-attention', 'field-subject', 'field-date']); break;
+            }
         }
+
+        // Helper function to re-format header fields on save
+        function formatHeaderField(text) {
+            if (!text) return "";
+            
+            // Remove existing HTML tags just in case they are saving again
+            let cleanText = text.replace(/<[^>]*>?/gm, '');
+            const lines = cleanText.split('\n');
+            
+            if (lines.length > 0) {
+                lines[0] = `<b>${lines[0].toUpperCase()}</b>`;
+            }
+            return lines.join('<br>');
+        }
+
+        // UPDATE Submission
+        document.getElementById('document-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const btn = document.getElementById('submit-btn');
+            const msg = document.getElementById('form-msg');
+            
+            btn.innerText = "Updating...";
+            btn.disabled = true;
+            msg.classList.remove('hidden');
+
+            const formattedContent = tinymce.get('body_content').getContent();
+            
+            // NOTE: If you store metadata outside of these fields in `content_data`, 
+            // you should fetch the existing JSON first and merge it here instead of overwriting.
+            let contentData = { body: formattedContent };
+            
+            const addNormalField = (fieldId, jsonKey) => {
+                const el = document.getElementById(fieldId);
+                const container = el.closest('.dyn-field');
+                if (!container.classList.contains('hidden') && el.value.trim() !== '') {
+                    contentData[jsonKey] = el.value.trim();
+                }
+            };
+
+            const addFormattedField = (fieldId, jsonKey) => {
+                const el = document.getElementById(fieldId);
+                const container = el.closest('.dyn-field');
+                if (!container.classList.contains('hidden') && el.value.trim() !== '') {
+                    contentData[jsonKey] = formatHeaderField(el.value.trim());
+                }
+            };
+
+            ['to', 'for', 'thru', 'attention'].forEach(key => addFormattedField(`meta_${key}`, key));
+            ['from', 'date', 'subtitle'].forEach(key => addNormalField(`meta_${key}`, key));
+
+            let docTitle = document.getElementById('meta_subject').value.trim();
+            const typeSelected = document.getElementById('doc_type');
+            
+            // --- FIX APPLIED HERE ---
+            // 1. Handle empty state
+            if(!docTitle) {
+                docTitle = typeSelected.options[typeSelected.selectedIndex].text + " - Draft";
+            } 
+
+            // 2. Normalize case for BOTH the database column and the JSON payload
+            docTitle = docTitle.toUpperCase();
+            contentData['subject'] = docTitle;
+            // -------------------------
+
+            // Set the update payload
+            const updatePayload = {
+                title: docTitle,
+                content_data: contentData,
+                updated_at: new Date().toISOString()
+            };
+
+            try {
+                const { error } = await window.supabaseClient
+                    .from('documents')
+                    .update(updatePayload)
+                    .eq('doc_id', currentDocId);
+
+                if (error) throw error;
+
+                msg.innerText = "Document updated successfully!";
+                msg.className = "text-sm font-bold text-green-600 block";
+                
+                setTimeout(() => window.location.href = 'index.html', 1200); 
+            } catch (err) {
+                console.error("DB ERROR:", err);
+                msg.innerText = err.message || "Failed to update.";
+                msg.className = "text-sm font-bold text-red-600 block";
+                alert("Update Failed: \n\n" + (err.message || "Check console"));
+            } finally {
+                btn.innerText = "Update Document";
+                btn.disabled = false;
+            }
+        });
     </script>
 </body>
 </html>
